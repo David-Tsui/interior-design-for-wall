@@ -1,0 +1,31 @@
+// Colors
+$primary-color: #3498db;
+$secondary-color: #2c3e50;
+$background-color: #ecf0f1;
+$wall-default-color: #f8f9fa;
+$border-color: #bdc3c7;
+
+// Block colors
+$block-colors: (
+  'red': #e74c3c,
+  'blue': #3498db,
+  'green': #2ecc71,
+  'yellow': #f1c40f,
+  'purple': #9b59b6,
+  'orange': #e67e22,
+  'pink': #e91e63,
+  'brown': #8d6e63,
+  'gray': #95a5a6,
+  'teal': #1abc9c
+);
+
+// Sizes
+$wall-default-width: 315cm;
+$wall-default-height: 300cm;
+$block-size-large: 60cm;
+$block-size-small: 30cm;
+
+// Spacing
+$padding: 1rem;
+$margin: 0.5rem;
+$border-radius: 4px;

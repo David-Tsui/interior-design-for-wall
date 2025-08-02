@@ -1,0 +1,68 @@
+@import 'variables';
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: $background-color;
+  color: $secondary-color;
+}
+
+#app {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: $padding;
+}
+
+.button {
+  background-color: $primary-color;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: $border-radius;
+  cursor: pointer;
+  font-size: 14px;
+  margin: $margin;
+  transition: background-color 0.3s;
+
+  &:hover {
+    background-color: darken($primary-color, 10%);
+  }
+
+  &:active {
+    transform: translateY(1px);
+  }
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $margin;
+  margin-bottom: $padding;
+  padding: $padding;
+  background: white;
+  border-radius: $border-radius;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  label {
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  input {
+    padding: 6px 8px;
+    border: 1px solid $border-color;
+    border-radius: $border-radius;
+    font-size: 14px;
+  }
+}
