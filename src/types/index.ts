@@ -5,6 +5,7 @@ export interface Block {
   width: number
   height: number
   color: string
+  isOverflow?: boolean
 }
 
 export interface Wall {

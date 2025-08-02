@@ -1,6 +1,6 @@
 <template>
   <div class="wall-container">
-    <div 
+    <div
       class="wall"
       :class="{ 'drag-over': isDragOver, 'invalid-drop': isInvalidDrop }"
       :style="wallStyle"
@@ -14,13 +14,14 @@
         :key="block.id"
         :block="block"
         :is-template="false"
+        :show-warnings="showWarnings"
         @block-moved="$emit('block-moved', block.id, $event.x, $event.y)"
         @block-removed="$emit('block-removed', block.id)"
       />
-      
+
       <!-- Preview block during drag -->
-      <div 
-        v-if="previewBlock" 
+      <div
+        v-if="previewBlock"
         class="preview-block"
         :class="{ 'invalid': !previewBlock.valid }"
         :style="previewBlockStyle"
@@ -36,11 +37,11 @@
 import { computed, ref } from 'vue'
 import BlockComponent from './BlockComponent.vue'
 import type { Block, Wall } from '../types'
-import { canPlaceBlock } from '../utils/helpers'
 
 interface Props {
   wall: Wall
   blocks: Block[]
+  showWarnings?: boolean
 }
 
 interface Emits {
@@ -56,19 +57,30 @@ const isDragOver = ref(false)
 const isInvalidDrop = ref(false)
 const previewBlock = ref<{ x: number, y: number, width: number, height: number, valid: boolean } | null>(null)
 
-const wallStyle = computed(() => ({
-  width: `${props.wall.width}px`,
-  height: `${props.wall.height}px`,
-  backgroundColor: props.wall.backgroundColor
-}))
+const wallStyle = computed(() => {
+  // Calculate responsive size based on container width
+  const baseWidth = 315
+  const aspectRatio = props.wall.height / props.wall.width
+  const containerWidth = Math.min(800, window.innerWidth * 0.6) // Max 800px, 60% of viewport
+  const scaleFactor = containerWidth / baseWidth
+
+  return {
+    width: `${props.wall.width * scaleFactor}px`,
+    height: `${props.wall.height * scaleFactor}px`,
+    backgroundColor: props.wall.backgroundColor,
+    '--scale-factor': scaleFactor,
+    overflow: props.showWarnings === false ? 'hidden' : 'visible'
+  }
+})
 
 const previewBlockStyle = computed(() => {
   if (!previewBlock.value) return {}
+  const scaleFactor = wallStyle.value['--scale-factor'] as number
   return {
-    left: `${previewBlock.value.x}px`,
-    top: `${previewBlock.value.y}px`,
-    width: `${previewBlock.value.width}px`,
-    height: `${previewBlock.value.height}px`
+    left: `${previewBlock.value.x * scaleFactor}px`,
+    top: `${previewBlock.value.y * scaleFactor}px`,
+    width: `${previewBlock.value.width * scaleFactor}px`,
+    height: `${previewBlock.value.height * scaleFactor}px`
   }
 })
 
@@ -97,16 +109,21 @@ const onDrop = (event: DragEvent) => {
   isDragOver.value = false
   previewBlock.value = null
   isInvalidDrop.value = false
-  
+
   const data = event.dataTransfer?.getData('text/plain')
   if (!data) return
 
   try {
     const dragData = JSON.parse(data)
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
-    const x = Math.max(0, Math.min(event.clientX - rect.left, props.wall.width - dragData.block.width))
-    const y = Math.max(0, Math.min(event.clientY - rect.top, props.wall.height - dragData.block.height))
-    
+    const scaleFactor = wallStyle.value['--scale-factor'] as number
+
+    // Convert from scaled coordinates back to logical coordinates
+    const scaledX = event.clientX - rect.left
+    const scaledY = event.clientY - rect.top
+    const x = Math.max(0, Math.min(scaledX / scaleFactor, props.wall.width - dragData.block.width))
+    const y = Math.max(0, Math.min(scaledY / scaleFactor, props.wall.height - dragData.block.height))
+
     if (dragData.type === 'template') {
       emit('template-dropped', dragData.block, { x, y })
     } else if (dragData.type === 'existing') {
@@ -123,48 +140,83 @@ const onDrop = (event: DragEvent) => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1rem;
+  gap: 1.5rem;
+  flex: 1;
 }
 
 .wall {
   position: relative;
-  border: 2px solid #bdc3c7;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  overflow: hidden;
+  border: 2px solid #ddd;
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
   min-height: 200px;
   min-width: 200px;
-  transition: border-color 0.3s ease;
+  transition: all 0.3s ease;
+  background: linear-gradient(145deg, #f8f9fa, #ffffff);
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background:
+      linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px),
+      linear-gradient(180deg, rgba(0,0,0,0.03) 1px, transparent 1px);
+    background-size: calc(var(--scale-factor, 1) * 20px) calc(var(--scale-factor, 1) * 20px);
+    pointer-events: none;
+    z-index: 1;
+  }
 
   &.drag-over {
     border-color: #3498db;
-    box-shadow: 0 4px 16px rgba(52, 152, 219, 0.3);
+    box-shadow:
+      0 12px 40px rgba(52, 152, 219, 0.25),
+      inset 0 1px 0 rgba(255, 255, 255, 0.8),
+      0 0 0 4px rgba(52, 152, 219, 0.15);
   }
 
   &.invalid-drop {
     border-color: #e74c3c;
-    box-shadow: 0 4px 16px rgba(231, 76, 60, 0.3);
+    box-shadow:
+      0 12px 40px rgba(231, 76, 60, 0.25),
+      inset 0 1px 0 rgba(255, 255, 255, 0.8),
+      0 0 0 4px rgba(231, 76, 60, 0.15);
   }
 }
 
 .preview-block {
   position: absolute;
   border: 2px dashed #3498db;
-  background-color: rgba(52, 152, 219, 0.2);
-  border-radius: 4px;
+  background-color: rgba(52, 152, 219, 0.15);
+  border-radius: 6px;
   pointer-events: none;
   z-index: 1000;
   transition: all 0.1s ease;
 
   &.invalid {
     border-color: #e74c3c;
-    background-color: rgba(231, 76, 60, 0.2);
+    background-color: rgba(231, 76, 60, 0.15);
   }
 }
 
 .wall-info {
   font-size: 14px;
-  color: #7f8c8d;
-  font-weight: 500;
+  color: #6c757d;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+@media (max-width: 768px) {
+  .wall-container {
+    gap: 1rem;
+  }
 }
 </style>

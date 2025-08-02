@@ -1,70 +1,104 @@
 <template>
   <div class="app">
-    <h1>Wall Decorator</h1>
+    <div class="controls-section flex">
+      <WallEditor
+        :wall="wallSettings"
+        @wall-updated="onWallUpdated"
+        :style="{ flex: 2 }"
+      />
 
-    <div class="controls">
-      <div class="input-group">
-        <label>Wall Width (cm)</label>
-        <input
-          v-model.number="wallSettings.width"
-          type="number"
-          min="100"
-          max="1000"
-        />
-      </div>
-
-      <div class="input-group">
-        <label>Wall Height (cm)</label>
-        <input
-          v-model.number="wallSettings.height"
-          type="number"
-          min="100"
-          max="500"
-        />
-      </div>
-
-      <div class="input-group">
-        <label>Wall Color</label>
-        <input
-          v-model="wallSettings.backgroundColor"
-          type="color"
-        />
-      </div>
-
-      <button @click="generateRandomDesign" class="button">
-        Generate Random Design
-      </button>
-
-      <button @click="saveCurrentDesign" class="button">
-        Save Design
-      </button>
-
-      <button @click="loadSavedDesign" class="button">
-        Load Saved Design
-      </button>
+      <BlockEditor
+        :wall="wallSettings"
+        :block-templates="blockTemplates"
+        @wall-updated="onWallUpdated"
+        @templates-updated="onTemplatesUpdated"
+        :style="{ flex: 3 }"
+      />
     </div>
 
+    <div class="controls-section">
+      <h3>Controls</h3>
+      <div class="control-groups">
+        <div class="control-group">
+          <h4>Generate</h4>
+          <div class="controls-grid">
+            <button
+              @click="generateRandomDesign"
+              class="button"
+            >
+              Random Design
+            </button>
+
+            <button
+              @click="generateStaggeredDesign"
+              class="button staggered-btn"
+            >
+              Staggered Design
+            </button>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <h4>Save/Load</h4>
+          <div class="controls-grid">
+            <button
+              @click="saveCurrentDesign"
+              class="button"
+            >
+              Save Design
+            </button>
+
+            <button
+              @click="loadSavedDesign"
+              class="button"
+            >
+              Load Saved Design
+            </button>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <h4>Display</h4>
+          <div class="controls-grid">
+            <label class="toggle-switch">
+              <input
+                type="checkbox"
+                v-model="showWarnings"
+              />
+              <span class="slider"></span>
+              <span class="label-text">Show Overflow Warnings</span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
     <div class="designer-area">
+      <div class="editor-panel">
+        <div class="block-palette">
+          <h3>Block Palette</h3>
+          <div class="palette-blocks">
+            <BlockComponent
+              v-for="template in blockTemplates"
+              :key="`template-${template.width}-${template.height}-${template.color}`"
+              :block="template"
+              :is-template="true"
+              :show-warnings="showWarnings"
+              @template-used="addBlockFromTemplate"
+            />
+          </div>
+        </div>
+      </div>
+
       <WallComponent
         :wall="wallSettings"
         :blocks="blocks"
+        :show-warnings="showWarnings"
         @block-moved="onBlockMoved"
         @block-removed="onBlockRemoved"
         @template-dropped="onTemplateDropped"
       />
-
-      <div class="block-palette">
-        <h3>Block Palette</h3>
-        <div class="palette-blocks">
-          <BlockComponent
-            v-for="template in blockTemplates"
-            :key="`template-${template.width}-${template.height}-${template.color}`"
-            :block="template"
-            :is-template="true"
-            @template-used="addBlockFromTemplate"
-          />
-        </div>
-      </div>
     </div>
   </div>
 </template>
@@ -73,8 +107,21 @@
 import { ref, reactive } from 'vue'
 import WallComponent from './components/WallComponent.vue'
 import BlockComponent from './components/BlockComponent.vue'
+import WallEditor from './components/WallEditor.vue'
+import BlockEditor from './components/BlockEditor.vue'
 import type { Block, Wall, Design } from './types'
-import { generateId, getRandomColor, canPlaceBlock, findValidPosition, generateOptimizedLayout } from './utils/helpers'
+import {
+  generateId,
+  canPlaceBlock,
+  findValidPosition,
+  findValidPositionWithinWall,
+  findPositionAdjacentToTarget,
+  isHorizontalOverflow,
+  isValidHorizontalPosition,
+  isVerticalOverflow,
+  isValidVerticalPosition,
+  checkCollision
+} from './utils/helpers'
 
 const wallSettings = reactive<Wall>({
   width: 315,
@@ -83,17 +130,21 @@ const wallSettings = reactive<Wall>({
 })
 
 const blocks = ref<Block[]>([])
+const showWarnings = ref<boolean>(true)
 
-const blockTemplates: Block[] = [
-  { id: 'template-1', x: 0, y: 0, width: 60, height: 30, color: '#e74c3c' },
-  { id: 'template-2', x: 0, y: 0, width: 30, height: 30, color: '#3498db' },
-  { id: 'template-3', x: 0, y: 0, width: 60, height: 60, color: '#2ecc71' },
-  { id: 'template-4', x: 0, y: 0, width: 30, height: 60, color: '#f1c40f' },
-  { id: 'template-5', x: 0, y: 0, width: 60, height: 30, color: '#9b59b6' },
-  { id: 'template-6', x: 0, y: 0, width: 30, height: 30, color: '#e67e22' },
-  { id: 'template-7', x: 0, y: 0, width: 60, height: 60, color: '#1abc9c' },
-  { id: 'template-8', x: 0, y: 0, width: 30, height: 60, color: '#e91e63' }
-]
+const blockTemplates = ref<Block[]>([
+  { id: 'template-1', x: 0, y: 0, width: 60, height: 30, color: '#fff' },
+  { id: 'template-2', x: 0, y: 0, width: 60, height: 30, color: '#eee' },
+  { id: 'template-3', x: 0, y: 0, width: 60, height: 30, color: '#222' },
+])
+
+const onWallUpdated = (newWall: Wall) => {
+  Object.assign(wallSettings, newWall)
+}
+
+const onTemplatesUpdated = (newTemplates: Block[]) => {
+  blockTemplates.value = newTemplates
+}
 
 const addBlockFromTemplate = (template: Block, position?: { x: number, y: number }) => {
   let finalPosition = position
@@ -118,9 +169,43 @@ const addBlockFromTemplate = (template: Block, position?: { x: number, y: number
       width: template.width,
       height: template.height
     }
-    if (!canPlaceBlock(testBlock, blocks.value, wallSettings)) {
-      alert('Cannot place block here - it would overlap with existing blocks!')
-      return
+
+    if (!canPlaceBlock(testBlock, blocks.value, wallSettings) ||
+      !isValidHorizontalPosition(testBlock, wallSettings) ||
+      !isValidVerticalPosition(testBlock, wallSettings)) {
+      // Find which block we're colliding with and try adjacent placement
+      const collidingBlock = blocks.value.find(existingBlock =>
+        checkCollision(testBlock, existingBlock)
+      )
+
+      let validPos = null
+
+      if (collidingBlock) {
+        // Try to place adjacent to the specific block we're colliding with
+        validPos = findPositionAdjacentToTarget(
+          { width: template.width, height: template.height },
+          collidingBlock,
+          blocks.value,
+          wallSettings,
+          finalPosition, // Original drop position to find closest adjacent spot
+        )
+      }
+
+      // If no adjacent position found, fall back to general position finding
+      if (!validPos) {
+        validPos = findValidPosition(
+          { width: template.width, height: template.height },
+          blocks.value,
+          wallSettings
+        )
+      }
+
+      if (!validPos) {
+        alert('Cannot place block here - no valid adjacent position found!')
+        return
+      }
+
+      finalPosition = validPos
     }
   }
 
@@ -130,7 +215,9 @@ const addBlockFromTemplate = (template: Block, position?: { x: number, y: number
     y: finalPosition.y,
     width: template.width,
     height: template.height,
-    color: template.color
+    color: template.color,
+    isOverflow: isHorizontalOverflow({ x: finalPosition.x, width: template.width }, wallSettings) ||
+      isVerticalOverflow({ y: finalPosition.y, height: template.height }, wallSettings)
   }
   blocks.value.push(newBlock)
 }
@@ -146,21 +233,51 @@ const onBlockMoved = (blockId: string, x: number, y: number) => {
     height: block.height
   }
 
-  // Check if the new position is valid
-  if (canPlaceBlock(testBlock, blocks.value, wallSettings, blockId)) {
+  // Check if the new position is valid (collision + horizontal/vertical limits)
+  if (canPlaceBlock(testBlock, blocks.value, wallSettings, blockId) &&
+    isValidHorizontalPosition(testBlock, wallSettings) &&
+    isValidVerticalPosition(testBlock, wallSettings)) {
     block.x = x
     block.y = y
+    // Update overflow status based on new position
+    block.isOverflow = isHorizontalOverflow({ x, width: block.width }, wallSettings) ||
+      isVerticalOverflow({ y, height: block.height }, wallSettings)
   } else {
-    // If invalid position, try to find the nearest valid position
-    const validPos = findValidPosition(
-      { width: block.width, height: block.height },
-      blocks.value,
-      wallSettings,
-      blockId
+    // Find which block(s) we're colliding with
+    const collidingBlock = blocks.value.find(existingBlock =>
+      existingBlock.id !== blockId && checkCollision(testBlock, existingBlock)
     )
+
+    let validPos = null
+
+    if (collidingBlock) {
+      // Try to place adjacent to the specific block we're colliding with
+      validPos = findPositionAdjacentToTarget(
+        { width: block.width, height: block.height },
+        collidingBlock,
+        blocks.value,
+        wallSettings,
+        { x, y }, // Original drag position to find closest adjacent spot
+        blockId
+      )
+    }
+
+    // If no adjacent position found, fall back to general position finding
+    if (!validPos) {
+      validPos = findValidPosition(
+        { width: block.width, height: block.height },
+        blocks.value,
+        wallSettings,
+        blockId
+      )
+    }
+
     if (validPos) {
       block.x = validPos.x
       block.y = validPos.y
+      // Update overflow status based on new position
+      block.isOverflow = isHorizontalOverflow({ x: validPos.x, width: block.width }, wallSettings) ||
+        isVerticalOverflow({ y: validPos.y, height: block.height }, wallSettings)
     }
     // If no valid position found, block stays in original position
   }
@@ -180,29 +297,156 @@ const onTemplateDropped = (template: Block, position: { x: number, y: number }) 
 const generateRandomDesign = () => {
   blocks.value = []
 
-  // Define available block sizes
-  const blockSizes = [
-    { width: 60, height: 30 },
-    { width: 30, height: 30 },
-    { width: 60, height: 60 },
-    { width: 30, height: 60 }
-  ]
-
-  // Calculate maximum possible blocks based on wall area
-  const wallArea = wallSettings.width * wallSettings.height
-  const avgBlockArea = 60 * 30 // Average block size
-  const maxPossibleBlocks = Math.floor(wallArea / avgBlockArea * 0.8) // 80% fill rate target
-
-  // Generate optimized layout
-  const generatedBlocks = generateOptimizedLayout(wallSettings, blockSizes, maxPossibleBlocks)
-
-  // Convert to Block objects with IDs
-  blocks.value = generatedBlocks.map(block => ({
-    id: generateId(),
-    ...block
+  // Extract block sizes and colors from the palette templates
+  const paletteBlocks = blockTemplates.value.map(template => ({
+    width: template.width,
+    height: template.height,
+    color: template.color,
+    area: template.width * template.height
   }))
 
-  console.log(`Generated ${blocks.value.length} blocks for wall ${wallSettings.width}x${wallSettings.height}`)
+  // Safety check for empty templates
+  if (paletteBlocks.length === 0) {
+    console.warn('No block templates available for random generation')
+    return
+  }
+
+  // Sort blocks by area (largest first for better packing)
+  const sortedBlocks = [...paletteBlocks].sort((a, b) => b.area - a.area)
+
+  // Calculate wall area and target fill rate
+  const wallArea = wallSettings.width * wallSettings.height
+  const targetFillRate = 0.85 // Target 85% fill rate
+  let totalPlacedArea = 0
+
+  const generatedBlocks: Block[] = []
+  let globalAttempts = 0
+  const maxGlobalAttempts = 500 // Prevent infinite loops
+
+  // Simplified algorithm: try random blocks until we can't place anymore
+  while (totalPlacedArea < wallArea * targetFillRate && globalAttempts < maxGlobalAttempts) {
+    globalAttempts++
+    let blockPlaced = false
+
+    // Shuffle the block templates for variety
+    const shuffledBlocks = [...sortedBlocks].sort(() => Math.random() - 0.5)
+
+    // Try to place blocks in random order
+    for (const blockTemplate of shuffledBlocks) {
+      // Skip if this block type would exceed our target area
+      if (totalPlacedArea + blockTemplate.area > wallArea * targetFillRate) {
+        continue
+      }
+
+      // Try to find a valid position for this block type
+      const position = findValidPositionWithinWall(
+        { width: blockTemplate.width, height: blockTemplate.height },
+        generatedBlocks,
+        wallSettings
+      )
+
+      if (position) {
+        generatedBlocks.push({
+          id: generateId(),
+          x: position.x,
+          y: position.y,
+          width: blockTemplate.width,
+          height: blockTemplate.height,
+          color: blockTemplate.color,
+          isOverflow: false // Random generation never creates overflow
+        })
+
+        totalPlacedArea += blockTemplate.area
+        blockPlaced = true
+        break // Try to place another block
+      }
+    }
+
+    // If no block could be placed in this iteration, stop
+    if (!blockPlaced) {
+      break
+    }
+  }
+
+  blocks.value = generatedBlocks
+  const fillPercentage = Math.round((totalPlacedArea / wallArea) * 100)
+  console.log(`Generated ${blocks.value.length} blocks filling ${fillPercentage}% of wall (${totalPlacedArea}/${wallArea})`)
+}
+
+const generateStaggeredDesign = () => {
+  blocks.value = []
+
+  // Extract block sizes and colors from the palette templates
+  const paletteBlocks = blockTemplates.value.map(template => ({
+    width: template.width,
+    height: template.height,
+    color: template.color
+  }))
+
+  const generatedBlocks: Block[] = []
+  let currentY = 0
+  let rowHeight = 0
+  let currentX = 0
+  let blockIndex = 0
+
+  // Generate staggered brick pattern with limited horizontal overflow
+  const maxBlockWidth = 60 // Maximum block width from templates - enforce one block size limit
+  let rowIndex = 0
+
+  while (currentY < wallSettings.height) { // No vertical overflow allowed
+    // Check if we need to move to next row
+    const randomPaletteBlock = paletteBlocks[Math.floor(Math.random() * paletteBlocks.length)]
+
+    if (currentX >= wallSettings.width + maxBlockWidth ||
+      (currentX > 0 && currentX + randomPaletteBlock.width > wallSettings.width + maxBlockWidth)) {
+      // Move to next row
+      currentY += rowHeight
+      rowIndex++
+      rowHeight = 0
+
+      // Calculate staggered offset for this row (alternate between normal and offset)
+      const staggerOffset = rowIndex % 2 === 0 ? 0 : -randomPaletteBlock.width / 2
+
+      // Ensure stagger offset doesn't exceed left overflow limit
+      currentX = Math.max(-maxBlockWidth, staggerOffset)
+
+      // If staggered position would cause right overflow beyond limit, reduce it
+      if (currentX + randomPaletteBlock.width > wallSettings.width + maxBlockWidth) {
+        currentX = wallSettings.width + maxBlockWidth - randomPaletteBlock.width
+      }
+    }
+
+    // Check if block would exceed vertical boundary (allow limited top overflow)
+    if (currentY + randomPaletteBlock.height > wallSettings.height ||
+      currentY < -30) { // 30 is max block height, limit top overflow
+      break // Stop if block would overflow vertically beyond limits
+    }
+
+    // Create block at current position (with staggered pattern and overflow constraints)
+    const newBlock: Block = {
+      id: generateId(),
+      x: currentX,
+      y: currentY,
+      width: randomPaletteBlock.width,
+      height: randomPaletteBlock.height,
+      color: randomPaletteBlock.color,
+      isOverflow: isHorizontalOverflow({ x: currentX, width: randomPaletteBlock.width }, wallSettings) ||
+        isVerticalOverflow({ y: currentY, height: randomPaletteBlock.height }, wallSettings)
+    }
+
+    generatedBlocks.push(newBlock)
+
+    // Update position for next block
+    currentX += randomPaletteBlock.width
+    rowHeight = Math.max(rowHeight, randomPaletteBlock.height)
+    blockIndex++
+
+    // Prevent infinite loop
+    if (generatedBlocks.length > 200) break
+  }
+
+  blocks.value = generatedBlocks
+  console.log(`Generated ${blocks.value.length} staggered blocks (with potential overflow)`)
 }
 
 const saveCurrentDesign = () => {
@@ -241,46 +485,238 @@ const loadSavedDesign = () => {
 <style lang="scss" scoped>
 .app {
   min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 2rem;
+}
+
+.flex {
+  display: flex;
+  gap: 2rem;
 }
 
 h1 {
   text-align: center;
+  margin-bottom: 2.5rem;
+  color: white;
+  font-size: 2.5rem;
+  font-weight: 700;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  letter-spacing: -0.02em;
+}
+
+.main-layout {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.controls-section {
+  background: rgba(255, 255, 255, 0.95);
+  padding: 2rem;
   margin-bottom: 2rem;
-  color: #2c3e50;
+  border-radius: 20px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(10px);
+
+  h3 {
+    margin-bottom: 1.5rem;
+    color: #2c3e50;
+    font-size: 1.4rem;
+    font-weight: 600;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .control-groups {
+    display: flex;
+    gap: 3rem;
+  }
+
+  .control-group {
+    flex: 1;
+
+    h4 {
+      margin-bottom: 1rem;
+      color: #34495e;
+      font-size: 1.1rem;
+      font-weight: 600;
+      border-bottom: 2px solid #3498db;
+      padding-bottom: 0.5rem;
+    }
+  }
+
+  .controls-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+
+    @media (min-width: 768px) {
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    }
+  }
+
+  .toggle-switch {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    cursor: pointer;
+    user-select: none;
+
+    input[type="checkbox"] {
+      position: absolute;
+      opacity: 0;
+      cursor: pointer;
+
+      &:checked + .slider {
+        background-color: #3498db;
+
+        &:before {
+          transform: translateX(22px);
+        }
+      }
+    }
+
+    .slider {
+      position: relative;
+      width: 44px;
+      height: 22px;
+      background-color: #ccc;
+      border-radius: 22px;
+      transition: background-color 0.3s ease;
+
+      &:before {
+        content: '';
+        position: absolute;
+        width: 18px;
+        height: 18px;
+        left: 2px;
+        top: 2px;
+        background-color: white;
+        border-radius: 50%;
+        transition: transform 0.3s ease;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      }
+    }
+
+    .label-text {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #5a6c7d;
+    }
+
+    &:hover .slider {
+      background-color: #bbb;
+
+      &:before {
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+      }
+    }
+
+    input:checked + .slider:hover {
+      background-color: #2980b9;
+    }
+  }
 }
 
 .designer-area {
   display: flex;
-  gap: 2rem;
+  gap: 3rem;
   align-items: flex-start;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 2.5rem;
+  border-radius: 20px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(10px);
+}
+
+.editor-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
 }
 
 .block-palette {
-  background: white;
-  padding: 1rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  min-width: 200px;
+  background: linear-gradient(145deg, #f8f9fa, #e9ecef);
+  padding: 2rem;
+  border-radius: 16px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 
   h3 {
-    margin-bottom: 1rem;
+    margin-bottom: 1.5rem;
     color: #2c3e50;
+    font-size: 1.4rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
   }
 
   .palette-blocks {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 1.5rem;
+  }
+}
+
+@media (max-width: 1024px) {
+  .app {
+    padding: 1rem;
+  }
+
+  .designer-area {
+    flex-direction: column;
+    gap: 2rem;
+    padding: 2rem;
+  }
+
+  .editor-panel {
+    min-width: auto;
+    width: 100%;
+  }
+
+  .block-palette {
+    .palette-blocks {
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    }
   }
 }
 
 @media (max-width: 768px) {
-  .designer-area {
-    flex-direction: column;
+  h1 {
+    font-size: 2rem;
   }
 
-  .controls {
+  .designer-area {
+    padding: 1.5rem;
+  }
+
+  .control-groups {
     flex-direction: column;
+    gap: 2rem;
+  }
+}
+
+.staggered-btn {
+  background: linear-gradient(145deg, #f39c12, #e67e22) !important;
+  box-shadow:
+    0 4px 15px rgba(243, 156, 18, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+
+  &:hover {
+    box-shadow:
+      0 6px 20px rgba(243, 156, 18, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+  }
+
+  &:active {
+    box-shadow:
+      0 2px 10px rgba(243, 156, 18, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
   }
 }
 </style>

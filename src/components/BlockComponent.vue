@@ -1,16 +1,20 @@
 <template>
   <div
     class="block"
-    :class="{ 'is-template': isTemplate, 'is-dragging': isDragging }"
+    :class="{
+      'is-template': isTemplate,
+      'is-dragging': isDragging,
+      'is-overflow': !isTemplate && block.isOverflow && (showWarnings !== false)
+    }"
     :style="blockStyle"
     draggable="true"
     @dragstart="onDragStart"
     @dragend="onDragEnd"
     @dblclick="onDoubleClick"
   >
-    <!-- <div class="block-info" v-if="!isTemplate">
+    <div class="block-info" v-if="isTemplate">
       {{ block.width }}×{{ block.height }}
-    </div> -->
+    </div>
     <div class="remove-btn" v-if="!isTemplate" @click="onRemove">×</div>
   </div>
 </template>
@@ -23,6 +27,7 @@ import { generateId } from '../utils/helpers'
 interface Props {
   block: Block
   isTemplate: boolean
+  showWarnings?: boolean
 }
 
 interface Emits {
@@ -37,16 +42,21 @@ const emit = defineEmits<Emits>()
 const isDragging = ref(false)
 
 const blockStyle = computed(() => {
+  // Get scale factor from CSS custom property or calculate it
+  const baseWidth = 315
+  const containerWidth = Math.min(800, (typeof window !== 'undefined' ? window.innerWidth : 1200) * 0.6)
+  const scaleFactor = containerWidth / baseWidth
+
   const style: any = {
-    width: `${props.block.width}px`,
-    height: `${props.block.height}px`,
+    width: props.isTemplate ? `${Math.max(80, props.block.width * 1.3)}px` : `${props.block.width * scaleFactor}px`,
+    height: props.isTemplate ? `${Math.max(40, props.block.height * 1.3)}px` : `${props.block.height * scaleFactor}px`,
     backgroundColor: props.block.color
   }
 
   if (!props.isTemplate) {
     style.position = 'absolute'
-    style.left = `${props.block.x}px`
-    style.top = `${props.block.y}px`
+    style.left = `${props.block.x * scaleFactor}px`
+    style.top = `${props.block.y * scaleFactor}px`
   }
 
   return style
@@ -84,11 +94,18 @@ const onDragEnd = (event: DragEvent) => {
   isDragging.value = false
 
   if (!props.isTemplate) {
-    const wall = event.target?.closest('.wall')
+    const wall = (event.target as HTMLElement)?.closest('.wall')
     if (wall) {
       const rect = wall.getBoundingClientRect()
-      const x = Math.max(0, Math.min(event.clientX - rect.left - props.block.width / 2, wall.clientWidth - props.block.width))
-      const y = Math.max(0, Math.min(event.clientY - rect.top - props.block.height / 2, wall.clientHeight - props.block.height))
+      const baseWidth = 315
+      const containerWidth = Math.min(800, window.innerWidth * 0.6)
+      const scaleFactor = containerWidth / baseWidth
+
+      // Convert from scaled coordinates back to logical coordinates
+      const scaledX = event.clientX - rect.left - (props.block.width * scaleFactor) / 2
+      const scaledY = event.clientY - rect.top - (props.block.height * scaleFactor) / 2
+      const x = Math.max(0, Math.min(scaledX / scaleFactor, (wall.clientWidth / scaleFactor) - props.block.width))
+      const y = Math.max(0, Math.min(scaledY / scaleFactor, (wall.clientHeight / scaleFactor) - props.block.height))
 
       emit('block-moved', { x, y })
     }
@@ -110,50 +127,86 @@ const onRemove = () => {
 
 <style lang="scss" scoped>
 .block {
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-radius: 4px;
+  border: 1px solid #ddd;
   cursor: move;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
   user-select: none;
+  z-index: 1;
+  opacity: 0.9;
 
   &:hover {
-    border-color: rgba(255, 255, 255, 0.6);
-    transform: scale(1.02);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    transform: scale(1.05);
+    z-index: 2;
   }
 
   &.is-template {
-    margin-bottom: 0.5rem;
     cursor: grab;
+    border: 2px solid rgba(0, 0, 0, 0.1);
+    box-shadow:
+      0 6px 20px rgba(0, 0, 0, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.6);
 
     &:hover {
-      transform: scale(1.05);
+      transform: scale(1.08);
+      box-shadow:
+        0 8px 30px rgba(0, 0, 0, 0.12),
+        inset 0 1px 0 rgba(255, 255, 255, 0.7);
+      border-color: rgba(0, 0, 0, 0.15);
     }
   }
 
   &.is-dragging {
-    opacity: 0.7;
-    transform: rotate(5deg);
+    opacity: 0.85;
+    transform: rotate(3deg) scale(1.1);
+    z-index: 1000;
+  }
+
+  &.is-overflow {
+    border: 3px solid #e74c3c !important;
+    box-shadow:
+      0 0 0 2px rgba(231, 76, 60, 0.3),
+      0 4px 15px rgba(231, 76, 60, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+    animation: overflow-warning 2s ease-in-out infinite alternate;
+    z-index: 100;
+
+    &::after {
+      content: '⚠️';
+      position: absolute;
+      top: -5px;
+      left: -5px;
+      font-size: 12px;
+      background: #e74c3c;
+      color: white;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
   }
 
   .block-info {
     font-size: 11px;
-    color: white;
-    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
-    font-weight: 600;
+    color: #ccc;
+    font-weight: 700;
+    padding: 2px 6px;
   }
 
   .remove-btn {
     position: absolute;
-    top: -8px;
-    right: -8px;
-    width: 20px;
-    height: 20px;
-    background: #e74c3c;
+    top: -10px;
+    right: -10px;
+    width: 24px;
+    height: 24px;
+    background: linear-gradient(145deg, #e74c3c, #c0392b);
     color: white;
     border-radius: 50%;
     display: flex;
@@ -163,15 +216,38 @@ const onRemove = () => {
     font-weight: bold;
     cursor: pointer;
     opacity: 0;
-    transition: opacity 0.2s ease;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(231, 76, 60, 0.4);
+    border: 2px solid white;
 
     &:hover {
-      background: #c0392b;
+      background: linear-gradient(145deg, #c0392b, #a93226);
+      transform: scale(1.1);
+      box-shadow: 0 6px 18px rgba(231, 76, 60, 0.5);
+    }
+
+    &:active {
+      transform: scale(0.95);
     }
   }
 
   &:hover .remove-btn {
     opacity: 1;
+  }
+}
+
+@keyframes overflow-warning {
+  0% {
+    box-shadow:
+      0 0 0 2px rgba(231, 76, 60, 0.3),
+      0 4px 15px rgba(231, 76, 60, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  }
+  100% {
+    box-shadow:
+      0 0 0 4px rgba(231, 76, 60, 0.6),
+      0 6px 20px rgba(231, 76, 60, 0.6),
+      inset 0 1px 0 rgba(255, 255, 255, 0.3);
   }
 }
 </style>
