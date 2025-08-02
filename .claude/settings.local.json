@@ -5,7 +5,10 @@
       "Bash(mkdir:*)",
       "Bash(pnpm install:*)",
       "Bash(pnpm dev:*)",
-      "Bash(pnpm build:*)"
+      "Bash(pnpm build:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(rm:*)",
+      "Bash(sed:*)"
     ],
     "deny": []
   }
