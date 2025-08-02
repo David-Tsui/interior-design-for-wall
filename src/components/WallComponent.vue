@@ -153,7 +153,6 @@ const onDrop = (event: DragEvent) => {
   min-height: 200px;
   min-width: 200px;
   transition: all 0.3s ease;
-  background: linear-gradient(145deg, #f8f9fa, #ffffff);
 
   &::before {
     content: '';

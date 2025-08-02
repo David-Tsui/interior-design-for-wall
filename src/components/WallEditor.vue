@@ -42,6 +42,11 @@ const emit = defineEmits<Emits>()
 // Local reactive copies
 const wallSettings = ref<Wall>({ ...props.wall })
 
+// Watch for prop changes to sync with parent
+watch(() => props.wall, (newWall) => {
+  wallSettings.value = { ...newWall }
+}, { deep: true })
+
 // Watch for changes and emit updates
 watch(wallSettings, (newWall) => {
   emit('wall-updated', { ...newWall })
