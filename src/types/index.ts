@@ -19,5 +19,6 @@ export interface Design {
   name: string
   wall: Wall
   blocks: Block[]
+  blockTemplates: Block[]
   createdAt: Date
 }

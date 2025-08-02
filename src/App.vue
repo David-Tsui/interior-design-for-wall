@@ -455,6 +455,7 @@ const saveCurrentDesign = () => {
     name: `Design ${new Date().toLocaleString()}`,
     wall: { ...wallSettings },
     blocks: [...blocks.value],
+    blockTemplates: [...blockTemplates.value],
     createdAt: new Date()
   }
 
@@ -477,6 +478,11 @@ const loadSavedDesign = () => {
   wallSettings.height = latestDesign.wall.height
   wallSettings.backgroundColor = latestDesign.wall.backgroundColor
   blocks.value = [...latestDesign.blocks]
+  
+  // Load block templates if they exist (for backward compatibility)
+  if (latestDesign.blockTemplates) {
+    blockTemplates.value = [...latestDesign.blockTemplates]
+  }
 
   alert(`Loaded design: ${latestDesign.name}`)
 }
