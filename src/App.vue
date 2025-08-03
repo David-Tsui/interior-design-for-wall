@@ -493,20 +493,33 @@ const generateStaggeredDesign = () => {
 }
 
 const saveCurrentDesign = () => {
+  const now = new Date()
+  const timeStr = now.getFullYear() + '-' +
+    String(now.getMonth() + 1).padStart(2, '0') + '-' +
+    String(now.getDate()).padStart(2, '0') + ' ' +
+    String(now.getHours()).padStart(2, '0') + ':' +
+    String(now.getMinutes()).padStart(2, '0')
+
   const design: Design = {
     id: generateId(),
-    name: `Design ${new Date().toLocaleString()}`,
+    name: `Design ${timeStr}`,
     wall: { ...wallSettings },
     blocks: [...blocks.value],
     blockTemplates: [...blockTemplates.value],
-    createdAt: new Date()
+    createdAt: now
   }
 
   const savedDesigns = JSON.parse(localStorage.getItem('wallDesigns') || '[]')
   savedDesigns.push(design)
+
+  // Keep only the last 10 designs
+  if (savedDesigns.length > 10) {
+    savedDesigns.splice(0, savedDesigns.length - 10)
+  }
+
   localStorage.setItem('wallDesigns', JSON.stringify(savedDesigns))
 
-  alert('Design saved successfully!')
+  alert(`Design saved successfully! (${savedDesigns.length}/10 slots used)`)
 }
 
 const loadSavedDesign = () => {
@@ -516,17 +529,49 @@ const loadSavedDesign = () => {
     return
   }
 
-  const latestDesign = savedDesigns[savedDesigns.length - 1]
-  wallSettings.width = latestDesign.wall.width
-  wallSettings.height = latestDesign.wall.height
-  wallSettings.backgroundColor = latestDesign.wall.backgroundColor
-  blocks.value = [...latestDesign.blocks]
-  
-  // Load block templates if they exist (for backward compatibility)
-  if (latestDesign.blockTemplates) {
-    blockTemplates.value = [...latestDesign.blockTemplates]
+  // Create a selection list with formatted dates
+  const designList = savedDesigns
+    .map((design: Design, index: number) => {
+      const date = new Date(design.createdAt)
+      const timeStr = date.getFullYear() + '-' +
+        String(date.getMonth() + 1).padStart(2, '0') + '-' +
+        String(date.getDate()).padStart(2, '0') + ' ' +
+        String(date.getHours()).padStart(2, '0') + ':' +
+        String(date.getMinutes()).padStart(2, '0')
+      return `${index + 1}. ${timeStr} (${design.blocks.length} blocks)`
+    })
+    .join('\n')
+
+  const selection = prompt(
+    `Select a design to load (1-${savedDesigns.length}):\n\n${designList}\n\nEnter number (1-${savedDesigns.length}) or 0 to cancel:`
+  )
+
+  if (!selection || selection === '0') {
+    return
   }
 
+  const selectedIndex = parseInt(selection) - 1
+  if (isNaN(selectedIndex) || selectedIndex < 0 || selectedIndex >= savedDesigns.length) {
+    alert('Invalid selection!')
+    return
+  }
+
+  const selectedDesign = savedDesigns[selectedIndex]
+  wallSettings.width = selectedDesign.wall.width
+  wallSettings.height = selectedDesign.wall.height
+  wallSettings.backgroundColor = selectedDesign.wall.backgroundColor
+  blocks.value = [...selectedDesign.blocks]
+
+  // Load block templates if they exist (for backward compatibility)
+  if (selectedDesign.blockTemplates) {
+    blockTemplates.value = [...selectedDesign.blockTemplates]
+  }
+
+  // Clear any selected block when loading a new design
+  selectedBlockId.value = null
+
+  alert(`Loaded design: ${selectedDesign.name}`)
+}
 
 // Keyboard event handling
 const handleKeyDown = (event: KeyboardEvent) => {
