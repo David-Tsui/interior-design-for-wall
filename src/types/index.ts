@@ -22,3 +22,8 @@ export interface Design {
   blockTemplates: Block[]
   createdAt: Date
 }
+
+export interface DragData {
+  type: 'template' | 'existing'
+  block: Block
+}

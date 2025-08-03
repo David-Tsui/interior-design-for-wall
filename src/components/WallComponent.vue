@@ -39,7 +39,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import BlockComponent from './BlockComponent.vue'
-import type { Block, Wall } from '../types'
+import type { Block, DragData, Wall } from '../types'
 
 interface Props {
   wall: Wall
@@ -118,7 +118,7 @@ const onDrop = (event: DragEvent) => {
   if (!data) return
 
   try {
-    const dragData = JSON.parse(data)
+    const dragData: DragData = JSON.parse(data)
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
     const scaleFactor = wallStyle.value['--scale-factor'] as number
 
@@ -131,7 +131,7 @@ const onDrop = (event: DragEvent) => {
     if (dragData.type === 'template') {
       emit('template-dropped', dragData.block, { x, y })
     } else if (dragData.type === 'existing') {
-      emit('block-moved', dragData.blockId, x, y)
+      emit('block-moved', dragData.block.id, x, y)
     }
   } catch (error) {
     console.error('Error parsing drag data:', error)
