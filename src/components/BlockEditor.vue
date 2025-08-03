@@ -19,7 +19,7 @@
                     class="template-preview"
                     :style="{
                       backgroundColor: template.color,
-                      width: `${Math.max(40, template.width)}px`,
+                      width: '40px',
                       height: '100%',
                     }"
                   ></div>
@@ -33,11 +33,11 @@
             <div class="template-inputs">
               <div class="input-group">
                 <label>Width (cm)</label>
-                <input v-model.number="template.width" type="number" min="20" max="100" />
+                <input v-model.number="template.width" type="number" min="30" max="100" />
               </div>
               <div class="input-group">
                 <label>Height (cm)</label>
-                <input v-model.number="template.height" type="number" min="15" max="50" />
+                <input v-model.number="template.height" type="number" min="30" max="100" />
               </div>
               <button
                 @click="removeTemplate(index)"
@@ -161,7 +161,7 @@ const resetTemplates = () => {
 .template-item {
   display: flex;
   align-items: start;
-  gap: 1.5rem;
+  gap: 1rem;
   padding: 1.5rem;
   background: rgba(255, 255, 255, 0.7);
   border-radius: 8px;
