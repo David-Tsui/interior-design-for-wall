@@ -17,11 +17,7 @@
                 <div class="overlap-input">
                   <div
                     class="template-preview"
-                    :style="{
-                      backgroundColor: template.color,
-                      width: '40px',
-                      height: '100%',
-                    }"
+                    :style="getTemplatePreviewStyle(template)"
                   ></div>
                   <input
                     v-model="template.color"
@@ -38,6 +34,21 @@
               <div class="input-group">
                 <label>Height (cm)</label>
                 <input v-model.number="template.height" type="number" min="30" max="100" />
+              </div>
+              <div class="input-group">
+                <label>Texture</label>
+                <div class="texture-controls">
+                  <button @click="uploadTexture(index)" class="button texture-btn">
+                    {{ template.textureImage ? 'Change' : 'Add' }}
+                  </button>
+                  <button
+                    v-if="template.textureImage"
+                    @click="removeTexture(index)"
+                    class="button secondary texture-btn"
+                  >
+                    Remove
+                  </button>
+                </div>
               </div>
               <button
                 @click="removeTemplate(index)"
@@ -56,6 +67,14 @@
         </div>
       </div>
     </div>
+
+    <!-- Image Cropper Modal -->
+    <ImageCropper
+      :visible="showCropper"
+      :image-url="cropperImageUrl"
+      @cropped="onImageCropped"
+      @cancel="onCropperCancel"
+    />
   </div>
 </template>
 
@@ -63,6 +82,9 @@
 import { ref, watch, nextTick } from 'vue'
 import type { Block } from '../types'
 import { getRandomColor } from '../utils/helpers'
+import { defaultBlockTemplates } from '../config/blockTemplates'
+import { uploadImage, blendImageWithColor } from '../utils/textureUpload'
+import ImageCropper from './ImageCropper.vue'
 
 interface Props {
   blockTemplates: Block[]
@@ -113,11 +135,78 @@ const removeTemplate = (index: number) => {
 }
 
 const resetTemplates = () => {
-  templates.value = [
-    { id: 'template-1', x: 0, y: 0, width: 60, height: 30, color: '#ffffff' },
-    { id: 'template-2', x: 0, y: 0, width: 60, height: 30, color: '#eeeeee' },
-    { id: 'template-3', x: 0, y: 0, width: 60, height: 30, color: '#222222' },
-  ]
+  templates.value = structuredClone(defaultBlockTemplates)
+}
+
+// Image cropper state
+const showCropper = ref(false)
+const cropperImageUrl = ref('')
+const currentTemplateIndex = ref(-1)
+
+const getTemplatePreviewStyle = (template: Block) => {
+  const style: any = {
+    width: '40px',
+    height: '100%',
+    borderRadius: '6px'
+  }
+
+  if (template.textureImage) {
+    // Show texture image blended with color
+    style.backgroundImage = `url(${template.textureImage})`
+    style.backgroundRepeat = 'repeat'
+    style.backgroundSize = 'auto'
+    style.backgroundColor = template.color
+    style.backgroundBlendMode = 'multiply'
+  } else {
+    // Show solid color
+    style.backgroundColor = template.color
+  }
+
+  return style
+}
+
+const uploadTexture = async (templateIndex: number) => {
+  try {
+    const imageDataUrl = await uploadImage()
+    currentTemplateIndex.value = templateIndex
+    cropperImageUrl.value = imageDataUrl
+    showCropper.value = true
+  } catch (error) {
+    console.warn('Failed to upload image:', error)
+  }
+}
+
+const onImageCropped = async (croppedImage: string) => {
+  if (currentTemplateIndex.value >= 0) {
+    try {
+      // Blend the cropped image with the template color
+      const template = templates.value[currentTemplateIndex.value]
+      const blendedImage = await blendImageWithColor(croppedImage, template.color, 0.6)
+
+      // Update the template
+      templates.value[currentTemplateIndex.value].textureImage = blendedImage
+    } catch (error) {
+      console.error('Failed to process texture:', error)
+      // Fallback: use the cropped image directly
+      templates.value[currentTemplateIndex.value].textureImage = croppedImage
+    }
+  }
+
+  showCropper.value = false
+  currentTemplateIndex.value = -1
+  cropperImageUrl.value = ''
+}
+
+const onCropperCancel = () => {
+  showCropper.value = false
+  currentTemplateIndex.value = -1
+  cropperImageUrl.value = ''
+}
+
+const removeTexture = (templateIndex: number) => {
+  if (templateIndex >= 0 && templateIndex < templates.value.length) {
+    delete templates.value[templateIndex].textureImage
+  }
 }
 </script>
 
@@ -299,15 +388,27 @@ const resetTemplates = () => {
       border-color: #3498db;
       box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
     }
+  }
 
-    &[type="color"] {
-      width: 60px;
-      height: 40px;
-      padding: 0;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-    }
+  input[type="color"] {
+    width: 60px;
+    height: 40px;
+    padding: 0;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+}
+
+.texture-controls {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+
+  .texture-btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.8rem;
+    min-width: auto;
   }
 }
 

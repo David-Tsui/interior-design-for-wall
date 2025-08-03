@@ -112,6 +112,7 @@ import BlockComponent from './components/BlockComponent.vue'
 import WallEditor from './components/WallEditor.vue'
 import BlockEditor from './components/BlockEditor.vue'
 import type { Block, Wall, Design } from './types'
+import { defaultBlockTemplates } from './config/blockTemplates'
 import {
   generateId,
   canPlaceBlock,
@@ -136,11 +137,7 @@ const blocks = ref<Block[]>([])
 const showWarnings = ref<boolean>(true)
 const selectedBlockId = ref<string | null>(null)
 
-const blockTemplates = ref<Block[]>([
-  { id: 'template-1', x: 0, y: 0, width: 60, height: 30, color: '#ffffff' },
-  { id: 'template-2', x: 0, y: 0, width: 60, height: 30, color: '#eeeeee' },
-  { id: 'template-3', x: 0, y: 0, width: 60, height: 30, color: '#222222' },
-])
+const blockTemplates = ref<Block[]>([...defaultBlockTemplates])
 
 const onWallUpdated = (newWall: Wall) => {
   Object.assign(wallSettings, newWall)
@@ -220,6 +217,7 @@ const addBlockFromTemplate = (template: Block, position?: { x: number, y: number
     width: template.width,
     height: template.height,
     color: template.color,
+    textureImage: template.textureImage,
     isOverflow: isHorizontalOverflow({ x: finalPosition.x, width: template.width }, wallSettings) ||
       isVerticalOverflow({ y: finalPosition.y, height: template.height }, wallSettings)
   }
@@ -371,13 +369,11 @@ const generateRandomDesign = () => {
 
   const generatedBlocks: Block[] = []
 
-  // Generate a random color for each block position
-  const colors = [
-    '#e74c3c', '#3498db', '#2ecc71', '#f1c40f', '#9b59b6',
-    '#e67e22', '#e91e63', '#8d6e63', '#95a5a6', '#1abc9c',
-    '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ffeaa7',
-    '#dda0dd', '#98d8c8', '#f7dc6f', '#bb8fce', '#85c1e9'
-  ]
+  // Extract colors and textures from block templates
+  const templateStyles = blockTemplates.value.map(template => ({
+    color: template.color,
+    textureImage: template.textureImage
+  }))
 
   // Fill the wall with a tidy grid of colored blocks
   for (let row = 0; row < blocksPerColumn; row++) {
@@ -385,8 +381,8 @@ const generateRandomDesign = () => {
       const x = col * blockSize.width
       const y = row * blockSize.height
 
-      // Pick a random color for each block
-      const randomColor = colors[Math.floor(Math.random() * colors.length)]
+      // Pick a random color and texture from the block templates
+      const randomStyle = templateStyles[Math.floor(Math.random() * templateStyles.length)]
 
       generatedBlocks.push({
         id: generateId(),
@@ -394,7 +390,8 @@ const generateRandomDesign = () => {
         y: y,
         width: blockSize.width,
         height: blockSize.height,
-        color: randomColor,
+        color: randomStyle.color,
+        textureImage: randomStyle.textureImage,
         isOverflow: false
       })
     }
@@ -407,11 +404,12 @@ const generateRandomDesign = () => {
 const generateStaggeredDesign = () => {
   blocks.value = []
 
-  // Extract block sizes and colors from the palette templates
+  // Extract block sizes, colors and textures from the palette templates
   const paletteBlocks = blockTemplates.value.map(template => ({
     width: template.width,
     height: template.height,
-    color: template.color
+    color: template.color,
+    textureImage: template.textureImage
   }))
 
   const generatedBlocks: Block[] = []
@@ -461,6 +459,7 @@ const generateStaggeredDesign = () => {
       width: randomPaletteBlock.width,
       height: randomPaletteBlock.height,
       color: randomPaletteBlock.color,
+      textureImage: randomPaletteBlock.textureImage,
       isOverflow: isHorizontalOverflow({ x: currentX, width: randomPaletteBlock.width }, wallSettings) ||
         isVerticalOverflow({ y: currentY, height: randomPaletteBlock.height }, wallSettings)
     }

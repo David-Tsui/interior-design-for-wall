@@ -5,6 +5,7 @@ export interface Block {
   width: number
   height: number
   color: string
+  textureImage?: string // Base64 data URL of user-uploaded texture
   isOverflow?: boolean
 }
 

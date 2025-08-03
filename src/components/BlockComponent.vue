@@ -45,6 +45,24 @@ const emit = defineEmits<Emits>()
 
 const isDragging = ref(false)
 
+const getTextureStyle = (block: Block) => {
+  const style: any = {}
+  
+  if (block.textureImage) {
+    // Use uploaded texture with color blending
+    style.backgroundImage = `url(${block.textureImage})`
+    style.backgroundRepeat = 'repeat'
+    style.backgroundSize = 'auto'
+    style.backgroundColor = block.color
+    style.backgroundBlendMode = 'multiply'
+  } else {
+    // Use solid color
+    style.backgroundColor = block.color
+  }
+  
+  return style
+}
+
 const blockStyle = computed(() => {
   // Get scale factor from CSS custom property or calculate it
   const baseWidth = 315
@@ -54,8 +72,10 @@ const blockStyle = computed(() => {
   const style: any = {
     width: props.isTemplate ? `${props.block.width * 1.3}px` : `${props.block.width * scaleFactor}px`,
     height: props.isTemplate ? `${props.block.height * 1.3}px` : `${props.block.height * scaleFactor}px`,
-    backgroundColor: props.block.color
   }
+
+  // Apply texture style
+  Object.assign(style, getTextureStyle(props.block))
 
   if (!props.isTemplate) {
     style.position = 'absolute'
@@ -76,7 +96,8 @@ const onDragStart = (event: DragEvent) => {
       y: 0,
       width: props.block.width,
       height: props.block.height,
-      color: props.block.color
+      color: props.block.color,
+      textureImage: props.block.textureImage
     }
 
     const dragData = {
@@ -134,6 +155,7 @@ const onBlockClick = (event: MouseEvent) => {
     emit('block-selected')
   }
 }
+
 </script>
 
 <style lang="scss" scoped>
