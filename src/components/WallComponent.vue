@@ -15,7 +15,7 @@
         :key="block.id"
         :block="block"
         :is-template="false"
-        :show-warnings="showWarnings"
+        :show-overflow-warnings="showOverflowWarnings"
         :is-selected="selectedBlockId === block.id"
         @block-moved="$emit('block-moved', block.id, $event.x, $event.y)"
         @block-removed="$emit('block-removed', block.id)"
@@ -44,7 +44,8 @@ import type { Block, DragData, Wall } from '../types'
 interface Props {
   wall: Wall
   blocks: Block[]
-  showWarnings?: boolean
+  showOverflowWarnings?: boolean
+  hideOverflowBlocks?: boolean
   selectedBlockId?: string | null
 }
 
@@ -73,7 +74,7 @@ const wallStyle = computed(() => {
     height: `${props.wall.height * scaleFactor}px`,
     backgroundColor: props.wall.backgroundColor,
     '--scale-factor': scaleFactor,
-    overflow: props.showWarnings === false ? 'hidden' : 'visible'
+    overflow: props.hideOverflowBlocks ? 'hidden' : 'visible'
   }
 })
 

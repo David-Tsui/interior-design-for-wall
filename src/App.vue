@@ -1,6 +1,6 @@
 <template>
   <div class="app">
-    <div class="controls-section flex">
+    <div class="container flex">
       <WallEditor
         :wall="wallSettings"
         @wall-updated="onWallUpdated"
@@ -16,63 +16,18 @@
       />
     </div>
 
-    <div class="controls-section">
-      <h3>Controls</h3>
-      <div class="control-groups">
-        <div class="control-group">
-          <h4>Generate</h4>
-          <div class="controls-grid">
-            <button
-              @click="generateRandomDesign"
-              class="button"
-            >
-              Random Design
-            </button>
-
-            <button
-              @click="generateStaggeredDesign"
-              class="button staggered-btn"
-            >
-              Staggered Design
-            </button>
-          </div>
-        </div>
-
-        <div class="control-group">
-          <h4>Save/Load</h4>
-          <div class="controls-grid">
-            <button
-              @click="saveCurrentDesign"
-              class="button"
-            >
-              Save Design
-            </button>
-
-            <button
-              @click="loadSavedDesign"
-              class="button"
-            >
-              Load Saved Design
-            </button>
-          </div>
-        </div>
-
-        <div class="control-group">
-          <h4>Display</h4>
-          <div class="controls-grid">
-            <label class="toggle-switch">
-              <input
-                type="checkbox"
-                v-model="showWarnings"
-              />
-              <span class="slider"></span>
-              <span class="label-text">Show Overflow Warnings</span>
-            </label>
-          </div>
-        </div>
-      </div>
+    <div class="container">
+      <ControlButtons
+        :show-overflow-warnings="showOverflowWarnings"
+        @update:show-overflow-warnings="showOverflowWarnings = $event"
+        :hide-overflow-blocks="hideOverflowBlocks"
+        @update:hide-overflow-blocks="hideOverflowBlocks = $event"
+        @generate-random="generateRandomDesign"
+        @generate-staggered="generateStaggeredDesign"
+        @save-design="saveCurrentDesign"
+        @load-design="loadSavedDesign"
+      />
     </div>
-
 
     <div class="designer-area">
       <div class="editor-panel">
@@ -84,7 +39,7 @@
               :key="`template-${template.width}-${template.height}-${template.color}`"
               :block="template"
               :is-template="true"
-              :show-warnings="showWarnings"
+              :show-overflow-warnings="showOverflowWarnings"
               @template-used="addBlockFromTemplate"
             />
           </div>
@@ -94,7 +49,8 @@
       <WallComponent
         :wall="wallSettings"
         :blocks="blocks"
-        :show-warnings="showWarnings"
+        :show-overflow-warnings="showOverflowWarnings"
+        :hide-overflow-blocks="hideOverflowBlocks"
         :selected-block-id="selectedBlockId"
         @block-moved="onBlockMoved"
         @block-removed="onBlockRemoved"
@@ -111,6 +67,7 @@ import WallComponent from './components/WallComponent.vue'
 import BlockComponent from './components/BlockComponent.vue'
 import WallEditor from './components/WallEditor.vue'
 import BlockEditor from './components/BlockEditor.vue'
+import ControlButtons from './components/ControlButtons.vue'
 import type { Block, Wall, Design } from './types'
 import { defaultBlockTemplates } from './config/blockTemplates'
 import {
@@ -134,7 +91,8 @@ const wallSettings = reactive<Wall>({
 })
 
 const blocks = ref<Block[]>([])
-const showWarnings = ref<boolean>(true)
+const showOverflowWarnings = ref<boolean>(true)
+const hideOverflowBlocks = ref<boolean>(false)
 const selectedBlockId = ref<string | null>(null)
 
 const blockTemplates = ref<Block[]>([...defaultBlockTemplates])
@@ -628,113 +586,13 @@ h1 {
   gap: 2rem;
 }
 
-.controls-section {
+.container {
   background: rgba(255, 255, 255, 0.95);
   padding: 2rem;
   margin-bottom: 2rem;
   border-radius: 20px;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
   backdrop-filter: blur(10px);
-
-  h3 {
-    margin-bottom: 1.5rem;
-    color: #2c3e50;
-    font-size: 1.4rem;
-    font-weight: 600;
-    text-align: center;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-
-  .control-groups {
-    display: flex;
-    gap: 3rem;
-  }
-
-  .control-group {
-    flex: 1;
-
-    h4 {
-      margin-bottom: 1rem;
-      color: #34495e;
-      font-size: 1.1rem;
-      font-weight: 600;
-      border-bottom: 2px solid #3498db;
-      padding-bottom: 0.5rem;
-    }
-  }
-
-  .controls-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 1rem;
-
-    @media (min-width: 768px) {
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    }
-  }
-
-  .toggle-switch {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    cursor: pointer;
-    user-select: none;
-
-    input[type="checkbox"] {
-      position: absolute;
-      opacity: 0;
-      cursor: pointer;
-
-      &:checked + .slider {
-        background-color: #3498db;
-
-        &:before {
-          transform: translateX(22px);
-        }
-      }
-    }
-
-    .slider {
-      position: relative;
-      width: 44px;
-      height: 22px;
-      background-color: #ccc;
-      border-radius: 22px;
-      transition: background-color 0.3s ease;
-
-      &:before {
-        content: '';
-        position: absolute;
-        width: 18px;
-        height: 18px;
-        left: 2px;
-        top: 2px;
-        background-color: white;
-        border-radius: 50%;
-        transition: transform 0.3s ease;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-      }
-    }
-
-    .label-text {
-      font-size: 0.9rem;
-      font-weight: 600;
-      color: #5a6c7d;
-    }
-
-    &:hover .slider {
-      background-color: #bbb;
-
-      &:before {
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-      }
-    }
-
-    input:checked + .slider:hover {
-      background-color: #2980b9;
-    }
-  }
 }
 
 .designer-area {
@@ -811,28 +669,6 @@ h1 {
     padding: 1.5rem;
   }
 
-  .control-groups {
-    flex-direction: column;
-    gap: 2rem;
-  }
 }
 
-.staggered-btn {
-  background: linear-gradient(145deg, #f39c12, #e67e22) !important;
-  box-shadow:
-    0 4px 15px rgba(243, 156, 18, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
-
-  &:hover {
-    box-shadow:
-      0 6px 20px rgba(243, 156, 18, 0.4),
-      inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
-  }
-
-  &:active {
-    box-shadow:
-      0 2px 10px rgba(243, 156, 18, 0.3),
-      inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
-  }
-}
 </style>

@@ -4,7 +4,7 @@
     :class="{
       'is-template': isTemplate,
       'is-dragging': isDragging,
-      'is-overflow': !isTemplate && block.isOverflow && (showWarnings !== false),
+      'is-overflow': !isTemplate && block.isOverflow && (showOverflowWarnings !== false),
       'is-selected': !isTemplate && isSelected
     }"
     :style="blockStyle"
@@ -29,7 +29,7 @@ import { generateId } from '../utils/helpers'
 interface Props {
   block: Block
   isTemplate: boolean
-  showWarnings?: boolean
+  showOverflowWarnings?: boolean
   isSelected?: boolean
 }
 
@@ -47,7 +47,7 @@ const isDragging = ref(false)
 
 const getTextureStyle = (block: Block) => {
   const style: any = {}
-  
+
   if (block.textureImage) {
     // Use uploaded texture with color blending
     style.backgroundImage = `url(${block.textureImage})`
@@ -59,7 +59,7 @@ const getTextureStyle = (block: Block) => {
     // Use solid color
     style.backgroundColor = block.color
   }
-  
+
   return style
 }
 
@@ -155,7 +155,6 @@ const onBlockClick = (event: MouseEvent) => {
     emit('block-selected')
   }
 }
-
 </script>
 
 <style lang="scss" scoped>
