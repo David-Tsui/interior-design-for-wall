@@ -55,17 +55,17 @@ watch(wallSettings, (newWall) => {
 
 <style lang="scss" scoped>
 .editor {
-  background: linear-gradient(145deg, #f8f9fa, #e9ecef);
+  background: linear-gradient(145deg, #4a4a52, #3a3a42);
   padding: 2rem;
   border-radius: 16px;
   box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.15);
 
   h3 {
     margin-bottom: 1.5rem;
-    color: #2c3e50;
+    color: #e2e8f0;
     font-size: 1.4rem;
     font-weight: 600;
     text-align: center;
@@ -83,7 +83,7 @@ watch(wallSettings, (newWall) => {
 .editor-section {
   h4 {
     margin-bottom: 1rem;
-    color: #34495e;
+    color: #cbd5e0;
     font-size: 1.1rem;
     font-weight: 600;
     border-bottom: 2px solid #3498db;
@@ -109,7 +109,7 @@ watch(wallSettings, (newWall) => {
   label {
     font-size: 0.9rem;
     font-weight: 600;
-    color: #5a6c7d;
+    color: #a0aec0;
   }
 
   input {
@@ -121,7 +121,7 @@ watch(wallSettings, (newWall) => {
 
     &:focus {
       outline: none;
-      border-color: #3498db;
+      border-color: #4a90e2;
       box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
     }
 
@@ -138,7 +138,7 @@ watch(wallSettings, (newWall) => {
 
 .button {
   padding: 0.75rem 1.5rem;
-  background: linear-gradient(145deg, #3498db, #2980b9);
+  background: linear-gradient(145deg, #4a90e2, #3182ce);
   color: white;
   border: none;
   border-radius: 10px;
@@ -164,7 +164,7 @@ watch(wallSettings, (newWall) => {
   }
 
   &.secondary {
-    background: linear-gradient(145deg, #95a5a6, #7f8c8d);
+    background: linear-gradient(145deg, #4a5568, #2d3748);
     box-shadow:
       0 4px 15px rgba(149, 165, 166, 0.3),
       inset 0 1px 0 rgba(255, 255, 255, 0.2);

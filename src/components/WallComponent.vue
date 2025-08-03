@@ -215,14 +215,15 @@ const onWallClick = (event: MouseEvent) => {
 
 .wall-info {
   font-size: 14px;
-  color: #6c757d;
+  color: #a0aec0;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   padding: 8px 16px;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(45, 45, 55, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 20px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 @media (max-width: 768px) {

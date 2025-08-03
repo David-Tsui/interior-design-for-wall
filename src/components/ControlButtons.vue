@@ -91,7 +91,7 @@ defineEmits<Emits>()
 .controls-section {
   h3 {
     margin-bottom: 1.5rem;
-    color: #2c3e50;
+    color: #e2e8f0;
     font-size: 1.4rem;
     font-weight: 600;
     text-align: center;
@@ -109,10 +109,10 @@ defineEmits<Emits>()
 
     h4 {
       margin-bottom: 1rem;
-      color: #34495e;
+      color: #cbd5e0;
       font-size: 1.1rem;
       font-weight: 600;
-      border-bottom: 2px solid #3498db;
+      border-bottom: 2px solid #4a90e2;
       padding-bottom: 0.5rem;
     }
   }
@@ -152,7 +152,7 @@ defineEmits<Emits>()
       position: relative;
       width: 44px;
       height: 22px;
-      background-color: #ccc;
+      background-color: #4a5568;
       border-radius: 22px;
       transition: background-color 0.3s ease;
 
@@ -173,11 +173,11 @@ defineEmits<Emits>()
     .label-text {
       font-size: 0.9rem;
       font-weight: 600;
-      color: #5a6c7d;
+      color: #a0aec0;
     }
 
     &:hover .slider {
-      background-color: #bbb;
+      background-color: #2d3748;
 
       &:before {
         box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
@@ -185,7 +185,7 @@ defineEmits<Emits>()
     }
 
     input:checked + .slider:hover {
-      background-color: #2980b9;
+      background-color: #3182ce;
     }
   }
 }

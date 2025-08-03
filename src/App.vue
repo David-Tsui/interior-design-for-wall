@@ -1,5 +1,7 @@
 <template>
   <div class="app">
+    <h1>Wall Decorator</h1>
+
     <div class="container flex">
       <WallEditor
         :wall="wallSettings"
@@ -559,8 +561,46 @@ onUnmounted(() => {
 <style lang="scss" scoped>
 .app {
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: 
+    radial-gradient(circle at 20% 50%, rgba(80, 80, 90, 0.4) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(120, 120, 130, 0.4) 0%, transparent 50%),
+    radial-gradient(circle at 40% 80%, rgba(100, 100, 110, 0.4) 0%, transparent 50%),
+    linear-gradient(135deg, #2c2c34 0%, #3a3a42 50%, #4a4a52 100%);
+  background-attachment: fixed;
+  background-size: 100% 100%;
   padding: 2rem;
+  position: relative;
+  
+  &::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+      repeating-linear-gradient(
+        90deg,
+        transparent,
+        transparent 100px,
+        rgba(255, 255, 255, 0.03) 100px,
+        rgba(255, 255, 255, 0.03) 101px
+      ),
+      repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 100px,
+        rgba(255, 255, 255, 0.03) 100px,
+        rgba(255, 255, 255, 0.03) 101px
+      );
+    pointer-events: none;
+    z-index: 0;
+  }
+  
+  > * {
+    position: relative;
+    z-index: 1;
+  }
 }
 
 .flex {
@@ -571,10 +611,10 @@ onUnmounted(() => {
 h1 {
   text-align: center;
   margin-bottom: 2.5rem;
-  color: white;
+  color: #e2e8f0;
   font-size: 2.5rem;
   font-weight: 700;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
   letter-spacing: -0.02em;
 }
 
@@ -587,11 +627,12 @@ h1 {
 }
 
 .container {
-  background: rgba(255, 255, 255, 0.95);
+  background: rgba(74, 74, 82, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   padding: 2rem;
   margin-bottom: 2rem;
   border-radius: 20px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
   backdrop-filter: blur(10px);
 }
 
@@ -599,10 +640,11 @@ h1 {
   display: flex;
   gap: 3rem;
   align-items: flex-start;
-  background: rgba(255, 255, 255, 0.95);
+  background: rgba(45, 45, 55, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   padding: 2.5rem;
   border-radius: 20px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
   backdrop-filter: blur(10px);
 }
 
@@ -613,17 +655,17 @@ h1 {
 }
 
 .block-palette {
-  background: linear-gradient(145deg, #f8f9fa, #e9ecef);
+  background: linear-gradient(145deg, #4a4a52, #3a3a42);
   padding: 2rem;
   border-radius: 16px;
   box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.15);
 
   h3 {
     margin-bottom: 1.5rem;
-    color: #2c3e50;
+    color: #e2e8f0;
     font-size: 1.4rem;
     font-weight: 600;
     text-transform: uppercase;
