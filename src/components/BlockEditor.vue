@@ -41,13 +41,6 @@
                   <button @click="uploadTexture(index)" class="button texture-btn">
                     {{ template.textureImage ? 'Change' : 'Add' }}
                   </button>
-                  <button
-                    v-if="template.textureImage"
-                    @click="removeTexture(index)"
-                    class="button secondary texture-btn"
-                  >
-                    Remove
-                  </button>
                 </div>
               </div>
               <button
@@ -287,9 +280,9 @@ const removeTexture = (templateIndex: number) => {
 
 .template-inputs {
   display: flex;
+  align-self: start;
   gap: 1.5rem;
   flex: 1;
-  align-items: flex-end;
 }
 
 .color-input {
