@@ -116,13 +116,14 @@ import {
   generateId,
   canPlaceBlock,
   findValidPosition,
-  findValidPositionWithinWall,
   findPositionAdjacentToTarget,
   isHorizontalOverflow,
   isValidHorizontalPosition,
   isVerticalOverflow,
   isValidVerticalPosition,
-  checkCollision
+  checkCollision,
+  findNearbyPosition,
+  hasSignificantOverlap
 } from './utils/helpers'
 
 const wallSettings = reactive<Wall>({
@@ -246,26 +247,35 @@ const onBlockMoved = (blockId: string, x: number, y: number) => {
     block.isOverflow = isHorizontalOverflow({ x, width: block.width }, wallSettings) ||
       isVerticalOverflow({ y, height: block.height }, wallSettings)
   } else {
-    // Find which block(s) we're colliding with
-    const collidingBlock = blocks.value.find(existingBlock =>
-      existingBlock.id !== blockId && checkCollision(testBlock, existingBlock)
+    // Try to find a nearby position close to the intended location first
+    let validPos = findNearbyPosition(
+      { width: block.width, height: block.height },
+      { x, y }, // Target position
+      blocks.value,
+      wallSettings,
+      blockId
     )
 
-    let validPos = null
-
-    if (collidingBlock) {
-      // Try to place adjacent to the specific block we're colliding with
-      validPos = findPositionAdjacentToTarget(
-        { width: block.width, height: block.height },
-        collidingBlock,
-        blocks.value,
-        wallSettings,
-        { x, y }, // Original drag position to find closest adjacent spot
-        blockId
+    // Only use adjacent placement if no nearby position found AND there's significant overlap
+    if (!validPos) {
+      const collidingBlock = blocks.value.find(existingBlock =>
+        existingBlock.id !== blockId && checkCollision(testBlock, existingBlock)
       )
+
+      if (collidingBlock && hasSignificantOverlap(testBlock, collidingBlock)) {
+        // Try to place adjacent to the specific block we're colliding with
+        validPos = findPositionAdjacentToTarget(
+          { width: block.width, height: block.height },
+          collidingBlock,
+          blocks.value,
+          wallSettings,
+          { x, y }, // Original drag position to find closest adjacent spot
+          blockId
+        )
+      }
     }
 
-    // If no adjacent position found, fall back to general position finding
+    // Last resort: general position finding
     if (!validPos) {
       validPos = findValidPosition(
         { width: block.width, height: block.height },
@@ -340,12 +350,10 @@ const onTemplateDropped = (template: Block, position: { x: number, y: number }) 
 const generateRandomDesign = () => {
   blocks.value = []
 
-  // Extract block sizes and colors from the palette templates
+  // Extract block sizes from the palette templates
   const paletteBlocks = blockTemplates.value.map(template => ({
     width: template.width,
-    height: template.height,
-    color: template.color,
-    area: template.width * template.height
+    height: template.height
   }))
 
   // Safety check for empty templates
@@ -354,66 +362,46 @@ const generateRandomDesign = () => {
     return
   }
 
-  // Sort blocks by area (largest first for better packing)
-  const sortedBlocks = [...paletteBlocks].sort((a, b) => b.area - a.area)
+  // Use the first template size for uniform grid
+  const blockSize = paletteBlocks[0]
 
-  // Calculate wall area and target fill rate
-  const wallArea = wallSettings.width * wallSettings.height
-  const targetFillRate = 0.85 // Target 85% fill rate
-  let totalPlacedArea = 0
+  // Calculate how many blocks fit in each dimension
+  const blocksPerRow = Math.floor(wallSettings.width / blockSize.width)
+  const blocksPerColumn = Math.floor(wallSettings.height / blockSize.height)
 
   const generatedBlocks: Block[] = []
-  let globalAttempts = 0
-  const maxGlobalAttempts = 500 // Prevent infinite loops
 
-  // Simplified algorithm: try random blocks until we can't place anymore
-  while (totalPlacedArea < wallArea * targetFillRate && globalAttempts < maxGlobalAttempts) {
-    globalAttempts++
-    let blockPlaced = false
+  // Generate a random color for each block position
+  const colors = [
+    '#e74c3c', '#3498db', '#2ecc71', '#f1c40f', '#9b59b6',
+    '#e67e22', '#e91e63', '#8d6e63', '#95a5a6', '#1abc9c',
+    '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ffeaa7',
+    '#dda0dd', '#98d8c8', '#f7dc6f', '#bb8fce', '#85c1e9'
+  ]
 
-    // Shuffle the block templates for variety
-    const shuffledBlocks = [...sortedBlocks].sort(() => Math.random() - 0.5)
+  // Fill the wall with a tidy grid of colored blocks
+  for (let row = 0; row < blocksPerColumn; row++) {
+    for (let col = 0; col < blocksPerRow; col++) {
+      const x = col * blockSize.width
+      const y = row * blockSize.height
 
-    // Try to place blocks in random order
-    for (const blockTemplate of shuffledBlocks) {
-      // Skip if this block type would exceed our target area
-      if (totalPlacedArea + blockTemplate.area > wallArea * targetFillRate) {
-        continue
-      }
+      // Pick a random color for each block
+      const randomColor = colors[Math.floor(Math.random() * colors.length)]
 
-      // Try to find a valid position for this block type
-      const position = findValidPositionWithinWall(
-        { width: blockTemplate.width, height: blockTemplate.height },
-        generatedBlocks,
-        wallSettings
-      )
-
-      if (position) {
-        generatedBlocks.push({
-          id: generateId(),
-          x: position.x,
-          y: position.y,
-          width: blockTemplate.width,
-          height: blockTemplate.height,
-          color: blockTemplate.color,
-          isOverflow: false // Random generation never creates overflow
-        })
-
-        totalPlacedArea += blockTemplate.area
-        blockPlaced = true
-        break // Try to place another block
-      }
-    }
-
-    // If no block could be placed in this iteration, stop
-    if (!blockPlaced) {
-      break
+      generatedBlocks.push({
+        id: generateId(),
+        x: x,
+        y: y,
+        width: blockSize.width,
+        height: blockSize.height,
+        color: randomColor,
+        isOverflow: false
+      })
     }
   }
 
   blocks.value = generatedBlocks
-  const fillPercentage = Math.round((totalPlacedArea / wallArea) * 100)
-  console.log(`Generated ${blocks.value.length} blocks filling ${fillPercentage}% of wall (${totalPlacedArea}/${wallArea})`)
+  console.log(`Generated ${blocks.value.length} blocks in a ${blocksPerRow}x${blocksPerColumn} grid`)
 }
 
 const generateStaggeredDesign = () => {

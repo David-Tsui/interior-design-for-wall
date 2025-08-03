@@ -113,59 +113,82 @@ export const findValidPositionWithinWall = (
   wall: { width: number, height: number },
   excludeBlockId?: string
 ): { x: number, y: number } | null => {
-  const step = 2 // Finer grid for better space utilization
+  // Early exit if block is too large for wall
+  if (blockSize.width > wall.width || blockSize.height > wall.height) {
+    return null
+  }
+
+  const step = existingBlocks.length > 30 ? 4 : 2 // Adaptive step size
+  const maxPositionsToTest = 200 // Limit for performance
   
-  // Generate potential positions prioritizing corners and edges
+  // For early placement (few blocks), prioritize corners and edges
+  if (existingBlocks.length <= 5) {
+    const cornerPositions = [
+      { x: 0, y: 0, priority: 100 },
+      { x: wall.width - blockSize.width, y: 0, priority: 95 },
+      { x: 0, y: wall.height - blockSize.height, priority: 90 },
+      { x: wall.width - blockSize.width, y: wall.height - blockSize.height, priority: 85 }
+    ].filter(pos => pos.x >= 0 && pos.y >= 0)
+    
+    for (const pos of cornerPositions) {
+      const testBlock = { x: pos.x, y: pos.y, width: blockSize.width, height: blockSize.height }
+      if (canPlaceBlock(testBlock, existingBlocks, wall, excludeBlockId)) {
+        return { x: pos.x, y: pos.y }
+      }
+    }
+  }
+  
+  // Generate positions with smart priority system
   const positions: { x: number, y: number, priority: number }[] = []
   
-  // Only search within wall boundaries - no overflow allowed for random generation
   for (let y = 0; y <= wall.height - blockSize.height; y += step) {
     for (let x = 0; x <= wall.width - blockSize.width; x += step) {
-      // Calculate priority: prefer positions near existing blocks or edges
       let priority = 0
       
-      // Edge preference (higher priority for edges)
-      if (x === 0 || y === 0 || x + blockSize.width === wall.width || y + blockSize.height === wall.height) {
-        priority += 10
+      // Edge preference (moderate boost for edges)
+      if (x === 0 || y === 0 || x + blockSize.width >= wall.width - step || y + blockSize.height >= wall.height - step) {
+        priority += 8
       }
       
-      // Adjacency preference (check if near existing blocks)
+      // Adjacency preference (strong boost for positions near existing blocks)
       const testBlock = { x, y, width: blockSize.width, height: blockSize.height }
+      let hasAdjacentBlock = false
+      
       for (const existing of existingBlocks) {
         if (excludeBlockId && existing.id === excludeBlockId) continue
         
-        // Check if adjacent (touching edges)
+        // Simplified adjacency check for performance
         const isAdjacent = (
-          (Math.abs(testBlock.x + testBlock.width - existing.x) <= step || 
-           Math.abs(existing.x + existing.width - testBlock.x) <= step) &&
-          !(testBlock.y + testBlock.height < existing.y || existing.y + existing.height < testBlock.y)
-        ) || (
-          (Math.abs(testBlock.y + testBlock.height - existing.y) <= step || 
-           Math.abs(existing.y + existing.height - testBlock.y) <= step) &&
-          !(testBlock.x + testBlock.width < existing.x || existing.x + existing.width < testBlock.x)
+          Math.abs(testBlock.x - (existing.x + existing.width)) <= step ||
+          Math.abs(testBlock.x + testBlock.width - existing.x) <= step ||
+          Math.abs(testBlock.y - (existing.y + existing.height)) <= step ||
+          Math.abs(testBlock.y + testBlock.height - existing.y) <= step
         )
         
         if (isAdjacent) {
-          priority += 5
+          priority += 12
+          hasAdjacentBlock = true
           break
         }
+      }
+      
+      // Boost positions that would create compact layouts
+      if (hasAdjacentBlock) {
+        priority += 5
       }
       
       positions.push({ x, y, priority })
     }
   }
   
-  // Sort by priority (highest first) and test positions
+  // Sort by priority and limit search
   positions.sort((a, b) => b.priority - a.priority)
+  const positionsToTest = positions.slice(0, maxPositionsToTest)
   
-  for (const pos of positions) {
+  for (const pos of positionsToTest) {
     const testBlock = { x: pos.x, y: pos.y, width: blockSize.width, height: blockSize.height }
     
-    // Check collision with existing blocks and ensure within strict wall bounds
-    if (canPlaceBlock(testBlock, existingBlocks, wall, excludeBlockId) &&
-        pos.x >= 0 && pos.y >= 0 && 
-        pos.x + blockSize.width <= wall.width && 
-        pos.y + blockSize.height <= wall.height) {
+    if (canPlaceBlock(testBlock, existingBlocks, wall, excludeBlockId)) {
       return { x: pos.x, y: pos.y }
     }
   }
@@ -281,4 +304,126 @@ export const generateOptimizedLayout = (
   }
 
   return blocks.map(({ id, ...block }) => block)
+}
+
+export const findNearbyPosition = (
+  blockSize: { width: number, height: number },
+  targetPosition: { x: number, y: number },
+  existingBlocks: { x: number, y: number, width: number, height: number, id: string }[],
+  wall: { width: number, height: number },
+  excludeBlockId?: string
+): { x: number, y: number } | null => {
+  const searchRadius = 20 // Search within 20px radius of target position
+  const step = 2 // Fine-grained search step
+
+  const candidatePositions: { x: number, y: number, distance: number }[] = []
+
+  // Generate positions within search radius
+  for (let y = targetPosition.y - searchRadius; y <= targetPosition.y + searchRadius; y += step) {
+    for (let x = targetPosition.x - searchRadius; x <= targetPosition.x + searchRadius; x += step) {
+      const distance = Math.sqrt(Math.pow(x - targetPosition.x, 2) + Math.pow(y - targetPosition.y, 2))
+      
+      // Only consider positions within the search radius
+      if (distance <= searchRadius) {
+        candidatePositions.push({ x, y, distance })
+      }
+    }
+  }
+
+  // Sort by distance from target position (closest first)
+  candidatePositions.sort((a, b) => a.distance - b.distance)
+
+  // Test positions starting with the closest
+  for (const pos of candidatePositions) {
+    const testBlock = { x: pos.x, y: pos.y, width: blockSize.width, height: blockSize.height }
+    
+    if (canPlaceBlock(testBlock, existingBlocks, wall, excludeBlockId) &&
+        isValidHorizontalPosition(testBlock, wall) &&
+        isValidVerticalPosition(testBlock, wall)) {
+      return { x: pos.x, y: pos.y }
+    }
+  }
+
+  return null
+}
+
+export const hasSignificantOverlap = (
+  block1: { x: number, y: number, width: number, height: number },
+  block2: { x: number, y: number, width: number, height: number }
+): boolean => {
+  if (!checkCollision(block1, block2)) {
+    return false
+  }
+
+  // Calculate overlap area
+  const overlapLeft = Math.max(block1.x, block2.x)
+  const overlapRight = Math.min(block1.x + block1.width, block2.x + block2.width)
+  const overlapTop = Math.max(block1.y, block2.y)
+  const overlapBottom = Math.min(block1.y + block1.height, block2.y + block2.height)
+
+  const overlapArea = (overlapRight - overlapLeft) * (overlapBottom - overlapTop)
+  const block1Area = block1.width * block1.height
+  
+  // Consider significant if overlap is more than 25% of the dragged block's area
+  const overlapPercentage = overlapArea / block1Area
+  return overlapPercentage > 0.25
+}
+
+
+export const findRandomPositionInWall = (
+  blockSize: { width: number, height: number },
+  existingBlocks: { x: number, y: number, width: number, height: number, id: string }[],
+  wall: { width: number, height: number },
+  excludeBlockId?: string
+): { x: number, y: number } | null => {
+  // Early exit if block is too large for wall
+  if (blockSize.width > wall.width || blockSize.height > wall.height) {
+    return null
+  }
+
+  // Pre-calculate valid ranges
+  const maxX = wall.width - blockSize.width
+  const maxY = wall.height - blockSize.height
+  
+  // For dense layouts, use grid-based approach to reduce collision checks
+  if (existingBlocks.length > 50) {
+    const step = Math.min(blockSize.width, blockSize.height) / 2
+    const gridPositions: { x: number, y: number }[] = []
+    
+    // Generate grid positions
+    for (let y = 0; y <= maxY; y += step) {
+      for (let x = 0; x <= maxX; x += step) {
+        gridPositions.push({ x: Math.floor(x), y: Math.floor(y) })
+      }
+    }
+    
+    // Shuffle and test grid positions
+    for (let i = gridPositions.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[gridPositions[i], gridPositions[j]] = [gridPositions[j], gridPositions[i]]
+    }
+    
+    for (const pos of gridPositions.slice(0, 100)) { // Test up to 100 positions
+      const testBlock = { x: pos.x, y: pos.y, width: blockSize.width, height: blockSize.height }
+      if (canPlaceBlock(testBlock, existingBlocks, wall, excludeBlockId)) {
+        return pos
+      }
+    }
+  } else {
+    // For sparse layouts, use pure random sampling
+    const maxAttempts = Math.min(150, (maxX + 1) * (maxY + 1))
+    
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const x = Math.floor(Math.random() * (maxX + 1))
+      const y = Math.floor(Math.random() * (maxY + 1))
+      
+      const testBlock = { x, y, width: blockSize.width, height: blockSize.height }
+      
+      if (canPlaceBlock(testBlock, existingBlocks, wall, excludeBlockId)) {
+        return { x, y }
+      }
+    }
+  }
+  
+  return null
 }

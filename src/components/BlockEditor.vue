@@ -60,7 +60,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, nextTick } from 'vue'
 import type { Block } from '../types'
 import { getRandomColor } from '../utils/helpers'
 
@@ -76,14 +76,22 @@ const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
 const templates = ref<Block[]>([...props.blockTemplates])
+let isUpdatingFromProps = false
 
 // Watch for prop changes to sync with parent
 watch(() => props.blockTemplates, (newBlockTemplates) => {
+  isUpdatingFromProps = true
   templates.value = [...newBlockTemplates]
+  nextTick(() => {
+    isUpdatingFromProps = false
+  })
 }, { deep: true })
 
+// Only emit changes if they weren't caused by prop updates
 watch(templates, (newTemplates) => {
-  emit('templates-updated', [...newTemplates])
+  if (!isUpdatingFromProps) {
+    emit('templates-updated', [...newTemplates])
+  }
 }, { deep: true })
 
 const addTemplate = () => {
