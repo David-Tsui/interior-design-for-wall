@@ -95,8 +95,10 @@
         :wall="wallSettings"
         :blocks="blocks"
         :show-warnings="showWarnings"
+        :selected-block-id="selectedBlockId"
         @block-moved="onBlockMoved"
         @block-removed="onBlockRemoved"
+        @block-selected="onBlockSelected"
         @template-dropped="onTemplateDropped"
       />
     </div>
@@ -104,7 +106,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import WallComponent from './components/WallComponent.vue'
 import BlockComponent from './components/BlockComponent.vue'
 import WallEditor from './components/WallEditor.vue'
@@ -131,6 +133,7 @@ const wallSettings = reactive<Wall>({
 
 const blocks = ref<Block[]>([])
 const showWarnings = ref<boolean>(true)
+const selectedBlockId = ref<string | null>(null)
 
 const blockTemplates = ref<Block[]>([
   { id: 'template-1', x: 0, y: 0, width: 60, height: 30, color: '#ffffff' },
@@ -288,6 +291,46 @@ const onBlockRemoved = (blockId: string) => {
   if (index !== -1) {
     blocks.value.splice(index, 1)
   }
+  // Clear selection if the removed block was selected
+  if (selectedBlockId.value === blockId) {
+    selectedBlockId.value = null
+  }
+}
+
+const onBlockSelected = (blockId: string) => {
+  selectedBlockId.value = blockId || null
+}
+
+const onKeyboardMove = (direction: 'up' | 'down' | 'left' | 'right') => {
+  if (!selectedBlockId.value) return
+
+  const block = blocks.value.find(b => b.id === selectedBlockId.value)
+  if (!block) return
+
+  const moveStep = 1 // Move 1px at a time for precision
+
+  // Use the same overflow limits as defined in helpers.ts
+  const maxBlockWidth = 60 // Maximum block width from templates
+  const maxBlockHeight = 30 // Maximum block height from templates
+
+  switch (direction) {
+    case 'up':
+      block.y = Math.max(-maxBlockHeight, block.y - moveStep) // Allow top overflow up to one block height
+      break
+    case 'down':
+      block.y = Math.min(wallSettings.height, block.y + moveStep)
+      break
+    case 'left':
+      block.x = Math.max(-maxBlockWidth, block.x - moveStep) // Allow left overflow up to one block width
+      break
+    case 'right':
+      block.x = Math.min(wallSettings.width + maxBlockWidth, block.x + moveStep) // Allow right overflow up to one block width
+      break
+  }
+
+  // Update overflow status based on new position
+  block.isOverflow = isHorizontalOverflow({ x: block.x, width: block.width }, wallSettings) ||
+    isVerticalOverflow({ y: block.y, height: block.height }, wallSettings)
 }
 
 const onTemplateDropped = (template: Block, position: { x: number, y: number }) => {
@@ -484,8 +527,43 @@ const loadSavedDesign = () => {
     blockTemplates.value = [...latestDesign.blockTemplates]
   }
 
-  alert(`Loaded design: ${latestDesign.name}`)
+
+// Keyboard event handling
+const handleKeyDown = (event: KeyboardEvent) => {
+  if (!selectedBlockId.value) return
+
+  // Prevent default scroll behavior for arrow keys
+  if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
+    event.preventDefault()
+  }
+
+  switch (event.key) {
+    case 'ArrowUp':
+      onKeyboardMove('up')
+      break
+    case 'ArrowDown':
+      onKeyboardMove('down')
+      break
+    case 'ArrowLeft':
+      onKeyboardMove('left')
+      break
+    case 'ArrowRight':
+      onKeyboardMove('right')
+      break
+    case 'Escape':
+      selectedBlockId.value = null // Deselect block
+      break
+  }
 }
+
+// Setup keyboard event listeners
+onMounted(() => {
+  document.addEventListener('keydown', handleKeyDown)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeyDown)
+})
 </script>
 
 <style lang="scss" scoped>

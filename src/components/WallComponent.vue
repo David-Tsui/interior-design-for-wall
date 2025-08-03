@@ -8,6 +8,7 @@
       @dragover="onDragOver"
       @dragenter="onDragEnter"
       @dragleave="onDragLeave"
+      @click="onWallClick"
     >
       <BlockComponent
         v-for="block in blocks"
@@ -15,8 +16,10 @@
         :block="block"
         :is-template="false"
         :show-warnings="showWarnings"
+        :is-selected="selectedBlockId === block.id"
         @block-moved="$emit('block-moved', block.id, $event.x, $event.y)"
         @block-removed="$emit('block-removed', block.id)"
+        @block-selected="$emit('block-selected', block.id)"
       />
 
       <!-- Preview block during drag -->
@@ -42,11 +45,13 @@ interface Props {
   wall: Wall
   blocks: Block[]
   showWarnings?: boolean
+  selectedBlockId?: string | null
 }
 
 interface Emits {
   (e: 'block-moved', blockId: string, x: number, y: number): void
   (e: 'block-removed', blockId: string): void
+  (e: 'block-selected', blockId: string): void
   (e: 'template-dropped', template: Block, position: { x: number, y: number }): void
 }
 
@@ -60,7 +65,6 @@ const previewBlock = ref<{ x: number, y: number, width: number, height: number, 
 const wallStyle = computed(() => {
   // Calculate responsive size based on container width
   const baseWidth = 315
-  const aspectRatio = props.wall.height / props.wall.width
   const containerWidth = Math.min(800, window.innerWidth * 0.6) // Max 800px, 60% of viewport
   const scaleFactor = containerWidth / baseWidth
 
@@ -131,6 +135,13 @@ const onDrop = (event: DragEvent) => {
     }
   } catch (error) {
     console.error('Error parsing drag data:', error)
+  }
+}
+
+const onWallClick = (event: MouseEvent) => {
+  // Only deselect if clicking on the wall itself (not a block)
+  if (event.target === event.currentTarget) {
+    emit('block-selected', '') // Empty string to deselect all blocks
   }
 }
 </script>
