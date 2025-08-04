@@ -195,12 +195,6 @@ const onCropperCancel = () => {
   currentTemplateIndex.value = -1
   cropperImageUrl.value = ''
 }
-
-const removeTexture = (templateIndex: number) => {
-  if (templateIndex >= 0 && templateIndex < templates.value.length) {
-    delete templates.value[templateIndex].textureImage
-  }
-}
 </script>
 
 <style lang="scss" scoped>

@@ -60,7 +60,7 @@
         @template-dropped="onTemplateDropped"
       />
     </div>
-    
+
     <SaveLoadModal
       :is-open="showSaveLoadModal"
       :initial-tab="modalInitialTab"
@@ -96,8 +96,7 @@ import {
   isVerticalOverflow,
   isValidVerticalPosition,
   checkCollision,
-  findNearbyPosition,
-  hasSignificantOverlap
+  findBestDropPosition
 } from './utils/helpers'
 
 const wallSettings = reactive<Wall>({
@@ -204,70 +203,22 @@ const onBlockMoved = (blockId: string, x: number, y: number) => {
   const block = blocks.value.find(b => b.id === blockId)
   if (!block) return
 
-  const testBlock = {
-    x,
-    y,
-    width: block.width,
-    height: block.height
-  }
+  // Use the improved snapping system
+  const bestPosition = findBestDropPosition(
+    { x, y },
+    { width: block.width, height: block.height },
+    blocks.value,
+    wallSettings,
+    blockId
+  )
 
-  // Check if the new position is valid (collision + horizontal/vertical limits)
-  if (canPlaceBlock(testBlock, blocks.value, wallSettings, blockId) &&
-    isValidHorizontalPosition(testBlock, wallSettings) &&
-    isValidVerticalPosition(testBlock, wallSettings)) {
-    block.x = x
-    block.y = y
-    // Update overflow status based on new position
-    block.isOverflow = isHorizontalOverflow({ x, width: block.width }, wallSettings) ||
-      isVerticalOverflow({ y, height: block.height }, wallSettings)
-  } else {
-    // Try to find a nearby position close to the intended location first
-    let validPos = findNearbyPosition(
-      { width: block.width, height: block.height },
-      { x, y }, // Target position
-      blocks.value,
-      wallSettings,
-      blockId
-    )
+  // Update block position
+  block.x = bestPosition.x
+  block.y = bestPosition.y
 
-    // Only use adjacent placement if no nearby position found AND there's significant overlap
-    if (!validPos) {
-      const collidingBlock = blocks.value.find(existingBlock =>
-        existingBlock.id !== blockId && checkCollision(testBlock, existingBlock)
-      )
-
-      if (collidingBlock && hasSignificantOverlap(testBlock, collidingBlock)) {
-        // Try to place adjacent to the specific block we're colliding with
-        validPos = findPositionAdjacentToTarget(
-          { width: block.width, height: block.height },
-          collidingBlock,
-          blocks.value,
-          wallSettings,
-          { x, y }, // Original drag position to find closest adjacent spot
-          blockId
-        )
-      }
-    }
-
-    // Last resort: general position finding
-    if (!validPos) {
-      validPos = findValidPosition(
-        { width: block.width, height: block.height },
-        blocks.value,
-        wallSettings,
-        blockId
-      )
-    }
-
-    if (validPos) {
-      block.x = validPos.x
-      block.y = validPos.y
-      // Update overflow status based on new position
-      block.isOverflow = isHorizontalOverflow({ x: validPos.x, width: block.width }, wallSettings) ||
-        isVerticalOverflow({ y: validPos.y, height: block.height }, wallSettings)
-    }
-    // If no valid position found, block stays in original position
-  }
+  // Update overflow status based on new position
+  block.isOverflow = isHorizontalOverflow({ x: bestPosition.x, width: block.width }, wallSettings) ||
+    isVerticalOverflow({ y: bestPosition.y, height: block.height }, wallSettings)
 }
 
 const onBlockRemoved = (blockId: string) => {
@@ -510,7 +461,7 @@ const onModalLoad = (selectedDesign: Design) => {
   selectedBlockId.value = null
 
   // Show success message with preview info
-  const previewInfo = selectedDesign.preview 
+  const previewInfo = selectedDesign.preview
     ? `\n📐 ${selectedDesign.preview.wallDimensions} • 🧱 ${selectedDesign.preview.blockCount} blocks • 🎨 ${selectedDesign.preview.templateCount} templates`
     : ''
   alert(`✅ Loaded design: ${selectedDesign.name}${previewInfo}`)
@@ -557,7 +508,7 @@ onUnmounted(() => {
 <style lang="scss" scoped>
 .app {
   min-height: 100vh;
-  background: 
+  background:
     radial-gradient(circle at 20% 50%, rgba(80, 80, 90, 0.4) 0%, transparent 50%),
     radial-gradient(circle at 80% 20%, rgba(120, 120, 130, 0.4) 0%, transparent 50%),
     radial-gradient(circle at 40% 80%, rgba(100, 100, 110, 0.4) 0%, transparent 50%),
@@ -566,7 +517,7 @@ onUnmounted(() => {
   background-size: 100% 100%;
   padding: 2rem;
   position: relative;
-  
+
   &::before {
     content: '';
     position: fixed;
@@ -574,7 +525,7 @@ onUnmounted(() => {
     left: 0;
     right: 0;
     bottom: 0;
-    background: 
+    background:
       repeating-linear-gradient(
         90deg,
         transparent,
@@ -592,7 +543,7 @@ onUnmounted(() => {
     pointer-events: none;
     z-index: 0;
   }
-  
+
   > * {
     position: relative;
     z-index: 1;

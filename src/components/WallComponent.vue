@@ -40,6 +40,7 @@
 import { computed, ref } from 'vue'
 import BlockComponent from './BlockComponent.vue'
 import type { Block, DragData, Wall } from '../types'
+import { findBestDropPosition } from '../utils/helpers'
 
 interface Props {
   wall: Wall
@@ -97,7 +98,9 @@ const onDragEnter = (event: DragEvent) => {
 const onDragLeave = (event: DragEvent) => {
   event.preventDefault()
   // Only hide drag over state if leaving the wall entirely
-  if (!event.currentTarget?.contains(event.relatedTarget as Node)) {
+  const currentTarget = event.currentTarget as HTMLElement
+  const relatedTarget = event.relatedTarget as Node | null
+  if (!currentTarget?.contains(relatedTarget)) {
     isDragOver.value = false
     previewBlock.value = null
     isInvalidDrop.value = false
@@ -126,13 +129,23 @@ const onDrop = (event: DragEvent) => {
     // Convert from scaled coordinates back to logical coordinates
     const scaledX = event.clientX - rect.left
     const scaledY = event.clientY - rect.top
-    const x = Math.max(0, Math.min(scaledX / scaleFactor, props.wall.width - dragData.block.width))
-    const y = Math.max(0, Math.min(scaledY / scaleFactor, props.wall.height - dragData.block.height))
+    const rawX = scaledX / scaleFactor
+    const rawY = scaledY / scaleFactor
+
+    // Use smart snapping for better placement
+    const excludeBlockId = dragData.type === 'existing' ? dragData.block.id : undefined
+    const bestPosition = findBestDropPosition(
+      { x: rawX, y: rawY },
+      { width: dragData.block.width, height: dragData.block.height },
+      props.blocks,
+      props.wall,
+      excludeBlockId
+    )
 
     if (dragData.type === 'template') {
-      emit('template-dropped', dragData.block, { x, y })
+      emit('template-dropped', dragData.block, bestPosition)
     } else if (dragData.type === 'existing') {
-      emit('block-moved', dragData.block.id, x, y)
+      emit('block-moved', dragData.block.id, bestPosition.x, bestPosition.y)
     }
   } catch (error) {
     console.error('Error parsing drag data:', error)
