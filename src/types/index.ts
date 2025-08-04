@@ -22,6 +22,11 @@ export interface Design {
   blocks: Block[]
   blockTemplates: Block[]
   createdAt: Date
+  preview?: {
+    blockCount: number
+    wallDimensions: string
+    templateCount: number
+  }
 }
 
 export interface DragData {

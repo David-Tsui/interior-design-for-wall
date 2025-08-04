@@ -60,6 +60,19 @@
         @template-dropped="onTemplateDropped"
       />
     </div>
+    
+    <SaveLoadModal
+      :is-open="showSaveLoadModal"
+      :initial-tab="modalInitialTab"
+      :current-design-data="{
+        blocks,
+        blockTemplates,
+        wall: wallSettings
+      }"
+      @close="showSaveLoadModal = false"
+      @save="onModalSave"
+      @load="onModalLoad"
+    />
   </div>
 </template>
 
@@ -70,6 +83,7 @@ import BlockComponent from './components/BlockComponent.vue'
 import WallEditor from './components/WallEditor.vue'
 import BlockEditor from './components/BlockEditor.vue'
 import ControlButtons from './components/ControlButtons.vue'
+import SaveLoadModal from './components/SaveLoadModal.vue'
 import type { Block, Wall, Design } from './types'
 import { defaultBlockTemplates } from './config/blockTemplates'
 import {
@@ -95,6 +109,8 @@ const wallSettings = reactive<Wall>({
 const blocks = ref<Block[]>([])
 const showOverflowWarnings = ref<boolean>(true)
 const hideOverflowBlocks = ref<boolean>(false)
+const showSaveLoadModal = ref<boolean>(false)
+const modalInitialTab = ref<'save' | 'load'>('save')
 const selectedBlockId = ref<string | null>(null)
 
 const blockTemplates = ref<Block[]>([...defaultBlockTemplates])
@@ -440,20 +456,25 @@ const generateStaggeredDesign = () => {
 }
 
 const saveCurrentDesign = () => {
+  modalInitialTab.value = 'save'
+  showSaveLoadModal.value = true
+}
+
+const onModalSave = (designName: string) => {
   const now = new Date()
-  const timeStr = now.getFullYear() + '-' +
-    String(now.getMonth() + 1).padStart(2, '0') + '-' +
-    String(now.getDate()).padStart(2, '0') + ' ' +
-    String(now.getHours()).padStart(2, '0') + ':' +
-    String(now.getMinutes()).padStart(2, '0')
 
   const design: Design = {
     id: generateId(),
-    name: `Design ${timeStr}`,
+    name: designName,
     wall: { ...wallSettings },
     blocks: [...blocks.value],
     blockTemplates: [...blockTemplates.value],
-    createdAt: now
+    createdAt: now,
+    preview: {
+      blockCount: blocks.value.length,
+      wallDimensions: `${wallSettings.width}×${wallSettings.height}cm`,
+      templateCount: blockTemplates.value.length
+    }
   }
 
   const savedDesigns = JSON.parse(localStorage.getItem('wallDesigns') || '[]')
@@ -466,44 +487,15 @@ const saveCurrentDesign = () => {
 
   localStorage.setItem('wallDesigns', JSON.stringify(savedDesigns))
 
-  alert(`Design saved successfully! (${savedDesigns.length}/10 slots used)`)
+  alert(`✅ Design "${designName}" saved successfully! (${savedDesigns.length}/10 slots used)`)
 }
 
 const loadSavedDesign = () => {
-  const savedDesigns = JSON.parse(localStorage.getItem('wallDesigns') || '[]')
-  if (savedDesigns.length === 0) {
-    alert('No saved designs found!')
-    return
-  }
+  modalInitialTab.value = 'load'
+  showSaveLoadModal.value = true
+}
 
-  // Create a selection list with formatted dates
-  const designList = savedDesigns
-    .map((design: Design, index: number) => {
-      const date = new Date(design.createdAt)
-      const timeStr = date.getFullYear() + '-' +
-        String(date.getMonth() + 1).padStart(2, '0') + '-' +
-        String(date.getDate()).padStart(2, '0') + ' ' +
-        String(date.getHours()).padStart(2, '0') + ':' +
-        String(date.getMinutes()).padStart(2, '0')
-      return `${index + 1}. ${timeStr} (${design.blocks.length} blocks)`
-    })
-    .join('\n')
-
-  const selection = prompt(
-    `Select a design to load (1-${savedDesigns.length}):\n\n${designList}\n\nEnter number (1-${savedDesigns.length}) or 0 to cancel:`
-  )
-
-  if (!selection || selection === '0') {
-    return
-  }
-
-  const selectedIndex = parseInt(selection) - 1
-  if (isNaN(selectedIndex) || selectedIndex < 0 || selectedIndex >= savedDesigns.length) {
-    alert('Invalid selection!')
-    return
-  }
-
-  const selectedDesign = savedDesigns[selectedIndex]
+const onModalLoad = (selectedDesign: Design) => {
   wallSettings.width = selectedDesign.wall.width
   wallSettings.height = selectedDesign.wall.height
   wallSettings.backgroundColor = selectedDesign.wall.backgroundColor
@@ -517,7 +509,11 @@ const loadSavedDesign = () => {
   // Clear any selected block when loading a new design
   selectedBlockId.value = null
 
-  alert(`Loaded design: ${selectedDesign.name}`)
+  // Show success message with preview info
+  const previewInfo = selectedDesign.preview 
+    ? `\n📐 ${selectedDesign.preview.wallDimensions} • 🧱 ${selectedDesign.preview.blockCount} blocks • 🎨 ${selectedDesign.preview.templateCount} templates`
+    : ''
+  alert(`✅ Loaded design: ${selectedDesign.name}${previewInfo}`)
 }
 
 // Keyboard event handling
@@ -601,6 +597,11 @@ onUnmounted(() => {
     position: relative;
     z-index: 1;
   }
+}
+
+/* Modal should appear above everything */
+:deep(.modal-overlay) {
+  z-index: 9999 !important;
 }
 
 .flex {
