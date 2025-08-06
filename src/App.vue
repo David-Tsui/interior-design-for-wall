@@ -24,6 +24,10 @@
         @update:show-overflow-warnings="showOverflowWarnings = $event"
         :hide-overflow-blocks="hideOverflowBlocks"
         @update:hide-overflow-blocks="hideOverflowBlocks = $event"
+        :debug-mode="debugMode"
+        @update:debug-mode="debugMode = $event"
+        :intersection-threshold="intersectionThreshold"
+        @update:intersection-threshold="intersectionThreshold = $event"
         @generate-random="generateRandomDesign"
         @generate-staggered="generateStaggeredDesign"
         @clear-design="clearDesign"
@@ -54,6 +58,8 @@
         :blocks="blocks"
         :show-overflow-warnings="showOverflowWarnings"
         :hide-overflow-blocks="hideOverflowBlocks"
+        :debug-mode="debugMode"
+        :intersection-threshold="intersectionThreshold"
         :selected-block-id="selectedBlockId"
         @block-moved="onBlockMoved"
         @block-removed="onBlockRemoved"
@@ -97,7 +103,8 @@ import {
   isVerticalOverflow,
   isValidVerticalPosition,
   checkCollision,
-  findBestDropPosition
+  hasSmallIntersection,
+  findBestPositionAroundBlock
 } from './utils/helpers'
 
 const wallSettings = reactive<Wall>({
@@ -109,6 +116,8 @@ const wallSettings = reactive<Wall>({
 const blocks = ref<Block[]>([])
 const showOverflowWarnings = ref<boolean>(true)
 const hideOverflowBlocks = ref<boolean>(false)
+const debugMode = ref<boolean>(false)
+const intersectionThreshold = ref<number>(25) // Percentage threshold for small intersections (default 25%)
 const showSaveLoadModal = ref<boolean>(false)
 const modalInitialTab = ref<'save' | 'load'>('save')
 const selectedBlockId = ref<string | null>(null)
@@ -204,22 +213,78 @@ const onBlockMoved = (blockId: string, x: number, y: number) => {
   const block = blocks.value.find(b => b.id === blockId)
   if (!block) return
 
-  // Use the improved snapping system
-  const bestPosition = findBestDropPosition(
-    { x, y },
-    { width: block.width, height: block.height },
+  if (debugMode.value) {
+    console.group(`🐛 DEBUG: Block Move Attempt`)
+    console.log(`Block ID: ${blockId}`)
+    console.log(`Current Position: (${block.x}, ${block.y})`)
+    console.log(`Desired Position: (${x}, ${y})`)
+    console.log(`Block Size: ${block.width}x${block.height}`)
+  }
+
+  // Smart intersection logic - check if intersection is too small
+  const testBlock = {
+    x,
+    y,
+    width: block.width,
+    height: block.height
+  }
+
+  const intersectionCheck = hasSmallIntersection(
+    testBlock,
     blocks.value,
-    wallSettings,
+    intersectionThreshold.value,
     blockId
   )
 
-  // Update block position
-  block.x = bestPosition.x
-  block.y = bestPosition.y
+  let finalPosition = { x, y }
+
+  if (intersectionCheck.hasSmallIntersection) {
+    if (debugMode.value) {
+      console.log(`⚠️ Small intersection detected (${intersectionCheck.collidingBlocks.map(c => c.intersectionPercent.toFixed(1)).join(', ')}%) - attempting auto-positioning`)
+    }
+
+    // Try to find a better position around the first colliding block
+    const firstCollidingBlock = intersectionCheck.collidingBlocks[0].block
+    const betterPosition = findBestPositionAroundBlock(
+      { width: block.width, height: block.height },
+      firstCollidingBlock,
+      { x, y },
+      blocks.value,
+      wallSettings,
+      blockId
+    )
+
+    if (betterPosition) {
+      finalPosition = betterPosition
+      if (debugMode.value) {
+        console.log(`✅ AUTO-POSITIONED: Found better position (${betterPosition.x}, ${betterPosition.y})`)
+      }
+    } else {
+      if (debugMode.value) {
+        console.log(`⚠️ Could not find better position - keeping original (${x}, ${y})`)
+      }
+    }
+  } else if (debugMode.value) {
+    if (intersectionCheck.collidingBlocks.length > 0) {
+      console.log(`✅ Large intersection allowed (${intersectionCheck.collidingBlocks.map(c => c.intersectionPercent.toFixed(1)).join(', ')}%) - moving to exact position`)
+    } else {
+      console.log(`✅ No intersections - moving to exact position (${x}, ${y})`)
+    }
+  }
+
+  // Update block position to final position
+  block.x = finalPosition.x
+  block.y = finalPosition.y
 
   // Update overflow status based on new position
-  block.isOverflow = isHorizontalOverflow({ x: bestPosition.x, width: block.width }, wallSettings) ||
-    isVerticalOverflow({ y: bestPosition.y, height: block.height }, wallSettings)
+  block.isOverflow = isHorizontalOverflow({ x: block.x, width: block.width }, wallSettings) ||
+    isVerticalOverflow({ y: block.y, height: block.height }, wallSettings)
+
+  if (debugMode.value) {
+    console.log(`Final Position: (${block.x}, ${block.y})`)
+    console.log(`Is Overflow: ${block.isOverflow}`)
+    console.groupEnd()
+  }
 }
 
 const onBlockRemoved = (blockId: string) => {
@@ -270,7 +335,18 @@ const onKeyboardMove = (direction: 'up' | 'down' | 'left' | 'right') => {
 }
 
 const onTemplateDropped = (template: Block, position: { x: number, y: number }) => {
+  if (debugMode.value) {
+    console.group(`🐛 DEBUG: Template Drop Attempt`)
+    console.log(`Template: ${template.width}x${template.height}, Color: ${template.color}`)
+    console.log(`Drop Position: (${position.x}, ${position.y})`)
+    console.log(`Wall Size: ${wallSettings.width}x${wallSettings.height}`)
+  }
+  
   addBlockFromTemplate(template, position)
+  
+  if (debugMode.value) {
+    console.groupEnd()
+  }
 }
 
 const generateRandomDesign = () => {

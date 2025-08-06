@@ -2,13 +2,15 @@
   <div class="wall-container">
     <div
       class="wall"
-      :class="{ 'drag-over': isDragOver, 'invalid-drop': isInvalidDrop }"
+      :class="{ 'drag-over': isDragOver, 'invalid-drop': isInvalidDrop, 'debug-mode': debugMode }"
       :style="wallStyle"
       @drop="onDrop"
       @dragover="onDragOver"
       @dragenter="onDragEnter"
       @dragleave="onDragLeave"
       @click="onWallClick"
+      @mousemove="onMouseMove"
+      @mouseleave="onMouseLeave"
     >
       <BlockComponent
         v-for="block in blocks"
@@ -29,6 +31,32 @@
         :class="{ 'invalid': !previewBlock.valid }"
         :style="previewBlockStyle"
       ></div>
+
+      <!-- Debug overlay -->
+      <div 
+        v-if="debugMode" 
+        class="debug-overlay"
+        :style="{ '--scale-factor': wallStyle['--scale-factor'] }"
+      >
+        <!-- Grid lines every 15px -->
+        <div class="debug-grid"></div>
+        
+        <!-- Position indicator at mouse -->
+        <div 
+          v-if="debugMousePosition" 
+          class="debug-position"
+          :style="{
+            left: `${debugMousePosition.x}px`,
+            top: `${debugMousePosition.y}px`
+          }"
+        >
+          <span class="debug-coords">
+            ({{ Math.round(debugMousePosition.logicalX) }}, {{ Math.round(debugMousePosition.logicalY) }})
+          </span>
+        </div>
+
+        <!-- Simplified debug mode - no complex position hints needed -->
+      </div>
     </div>
     <div class="wall-info">
       {{ wall.width }}cm × {{ wall.height }}cm
@@ -40,13 +68,15 @@
 import { computed, ref } from 'vue'
 import BlockComponent from './BlockComponent.vue'
 import type { Block, DragData, Wall } from '../types'
-import { findBestDropPosition } from '../utils/helpers'
+import { hasSmallIntersection, findBestPositionAroundBlock } from '../utils/helpers'
 
 interface Props {
   wall: Wall
   blocks: Block[]
   showOverflowWarnings?: boolean
   hideOverflowBlocks?: boolean
+  debugMode?: boolean
+  intersectionThreshold?: number
   selectedBlockId?: string | null
 }
 
@@ -63,6 +93,7 @@ const emit = defineEmits<Emits>()
 const isDragOver = ref(false)
 const isInvalidDrop = ref(false)
 const previewBlock = ref<{ x: number, y: number, width: number, height: number, valid: boolean } | null>(null)
+const debugMousePosition = ref<{ x: number, y: number, logicalX: number, logicalY: number } | null>(null)
 
 const wallStyle = computed(() => {
   // Calculate responsive size based on container width
@@ -109,7 +140,7 @@ const onDragLeave = (event: DragEvent) => {
 
 const onDragOver = (event: DragEvent) => {
   event.preventDefault()
-  // Basic dragover handling without reading drag data (not available during dragover in some browsers)
+  // Basic dragover handling - no complex positioning needed
 }
 
 const onDrop = (event: DragEvent) => {
@@ -132,20 +163,80 @@ const onDrop = (event: DragEvent) => {
     const rawX = scaledX / scaleFactor
     const rawY = scaledY / scaleFactor
 
-    // Use smart snapping for better placement
+    if (props.debugMode) {
+      console.group(`🐛 DEBUG: Wall Drop Event`)
+      console.log(`Drop Type: ${dragData.type}`)
+      console.log(`Raw Mouse Position: (${event.clientX}, ${event.clientY})`)
+      console.log(`Wall Rect: ${rect.left}, ${rect.top}, ${rect.width}x${rect.height}`)
+      console.log(`Scale Factor: ${scaleFactor}`)
+      console.log(`Scaled Position: (${scaledX}, ${scaledY})`)
+      console.log(`Logical Position: (${rawX}, ${rawY})`)
+      console.log(`Block Size: ${dragData.block.width}x${dragData.block.height}`)
+    }
+
+    // Smart intersection logic - check if intersection is too small
+    const testBlock = {
+      x: rawX,
+      y: rawY,
+      width: dragData.block.width,
+      height: dragData.block.height
+    }
+
     const excludeBlockId = dragData.type === 'existing' ? dragData.block.id : undefined
-    const bestPosition = findBestDropPosition(
-      { x: rawX, y: rawY },
-      { width: dragData.block.width, height: dragData.block.height },
+    const threshold = props.intersectionThreshold || 25
+    
+    const intersectionCheck = hasSmallIntersection(
+      testBlock,
       props.blocks,
-      props.wall,
+      threshold,
       excludeBlockId
     )
 
+    let finalPosition = { x: rawX, y: rawY }
+
+    if (intersectionCheck.hasSmallIntersection) {
+      if (props.debugMode) {
+        console.log(`⚠️ Small intersection detected (${intersectionCheck.collidingBlocks.map(c => c.intersectionPercent.toFixed(1)).join(', ')}%) - attempting auto-positioning`)
+      }
+
+      // Try to find a better position around the first colliding block
+      const firstCollidingBlock = intersectionCheck.collidingBlocks[0].block
+      const betterPosition = findBestPositionAroundBlock(
+        { width: dragData.block.width, height: dragData.block.height },
+        firstCollidingBlock,
+        { x: rawX, y: rawY },
+        props.blocks,
+        props.wall,
+        excludeBlockId
+      )
+
+      if (betterPosition) {
+        finalPosition = betterPosition
+        if (props.debugMode) {
+          console.log(`✅ AUTO-POSITIONED: Found better position (${betterPosition.x}, ${betterPosition.y})`)
+        }
+      } else {
+        if (props.debugMode) {
+          console.log(`⚠️ Could not find better position - keeping original (${rawX}, ${rawY})`)
+        }
+      }
+    } else if (props.debugMode) {
+      if (intersectionCheck.collidingBlocks.length > 0) {
+        console.log(`✅ Large intersection allowed (${intersectionCheck.collidingBlocks.map(c => c.intersectionPercent.toFixed(1)).join(', ')}%) - placing at exact position`)
+      } else {
+        console.log(`✅ No intersections - placing at exact position (${rawX}, ${rawY})`)
+      }
+    }
+
+    // Place the block at the drop position
     if (dragData.type === 'template') {
-      emit('template-dropped', dragData.block, bestPosition)
+      emit('template-dropped', dragData.block, finalPosition)
     } else if (dragData.type === 'existing') {
-      emit('block-moved', dragData.block.id, bestPosition.x, bestPosition.y)
+      emit('block-moved', dragData.block.id, finalPosition.x, finalPosition.y)
+    }
+
+    if (props.debugMode) {
+      console.groupEnd()
     }
   } catch (error) {
     console.error('Error parsing drag data:', error)
@@ -156,6 +247,34 @@ const onWallClick = (event: MouseEvent) => {
   // Only deselect if clicking on the wall itself (not a block)
   if (event.target === event.currentTarget) {
     emit('block-selected', '') // Empty string to deselect all blocks
+  }
+}
+
+const onMouseMove = (event: MouseEvent) => {
+  if (!props.debugMode) return
+
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+  const scaleFactor = wallStyle.value['--scale-factor'] as number
+  
+  const scaledX = event.clientX - rect.left
+  const scaledY = event.clientY - rect.top
+  const logicalX = scaledX / scaleFactor
+  const logicalY = scaledY / scaleFactor
+
+  debugMousePosition.value = {
+    x: scaledX,
+    y: scaledY,
+    logicalX,
+    logicalY
+  }
+
+  // Don't show position hints during regular mouse hover
+  // Position hints are only shown during active drag operations
+}
+
+const onMouseLeave = () => {
+  if (props.debugMode) {
+    debugMousePosition.value = null
   }
 }
 </script>
@@ -209,6 +328,14 @@ const onWallClick = (event: MouseEvent) => {
       inset 0 1px 0 rgba(255, 255, 255, 0.8),
       0 0 0 4px rgba(231, 76, 60, 0.15);
   }
+
+  &.debug-mode {
+    border-color: #e67e22;
+    box-shadow:
+      0 12px 40px rgba(230, 126, 34, 0.25),
+      inset 0 1px 0 rgba(255, 255, 255, 0.8),
+      0 0 0 2px rgba(230, 126, 34, 0.3);
+  }
 }
 
 .preview-block {
@@ -225,6 +352,60 @@ const onWallClick = (event: MouseEvent) => {
     background-color: rgba(231, 76, 60, 0.15);
   }
 }
+
+.debug-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 1001;
+}
+
+.debug-grid {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: 
+    linear-gradient(to right, rgba(230, 126, 34, 0.3) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(230, 126, 34, 0.3) 1px, transparent 1px);
+  background-size: calc(var(--scale-factor, 1) * 15px) calc(var(--scale-factor, 1) * 15px);
+}
+
+.debug-position {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  z-index: 1002;
+  
+  .debug-coords {
+    display: inline-block;
+    background: rgba(230, 126, 34, 0.9);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    font-family: monospace;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    margin-bottom: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    
+    &::after {
+      content: '';
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 4px solid transparent;
+      border-top-color: rgba(230, 126, 34, 0.9);
+    }
+  }
+}
+
+/* Simplified styles - no complex positioning hints needed */
 
 .wall-info {
   font-size: 14px;

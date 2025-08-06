@@ -69,6 +69,34 @@
             <span class="slider"></span>
             <span class="label-text">Hide Overflow Blocks 🙈</span>
           </label>
+
+          <label class="toggle-switch">
+            <input
+              type="checkbox"
+              :checked="debugMode"
+              @change="$emit('update:debugMode', ($event.target as HTMLInputElement).checked)"
+            />
+            <span class="slider debug"></span>
+            <span class="label-text">Debug Mode 🐛</span>
+          </label>
+
+          <div class="slider-control">
+            <label class="slider-label">
+              Smart Positioning Threshold: {{ intersectionThreshold }}%
+            </label>
+            <input
+              type="range"
+              min="5"
+              max="50"
+              step="5"
+              :value="intersectionThreshold"
+              @input="$emit('update:intersectionThreshold', parseInt(($event.target as HTMLInputElement).value))"
+              class="threshold-slider"
+            />
+            <div class="slider-help">
+              Auto-position when intersection < {{ intersectionThreshold }}%
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -79,6 +107,8 @@
 interface Props {
   showOverflowWarnings: boolean
   hideOverflowBlocks: boolean
+  debugMode: boolean
+  intersectionThreshold: number
 }
 
 interface Emits {
@@ -89,6 +119,8 @@ interface Emits {
   (e: 'load-design'): void
   (e: 'update:showOverflowWarnings', value: boolean): void
   (e: 'update:hideOverflowBlocks', value: boolean): void
+  (e: 'update:debugMode', value: boolean): void
+  (e: 'update:intersectionThreshold', value: number): void
 }
 
 defineProps<Props>()
@@ -154,6 +186,10 @@ defineEmits<Emits>()
           transform: translateX(22px);
         }
       }
+
+      &:checked + .slider.debug {
+        background-color: #e67e22;
+      }
     }
 
     .slider {
@@ -194,6 +230,68 @@ defineEmits<Emits>()
 
     input:checked + .slider:hover {
       background-color: #3182ce;
+    }
+  }
+
+  .slider-control {
+    background: rgba(45, 45, 55, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 1rem;
+    margin-top: 0.5rem;
+
+    .slider-label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #cbd5e0;
+      margin-bottom: 0.5rem;
+    }
+
+    .threshold-slider {
+      width: 100%;
+      height: 6px;
+      background: #4a5568;
+      border-radius: 3px;
+      outline: none;
+      margin-bottom: 0.5rem;
+      
+      &::-webkit-slider-thumb {
+        appearance: none;
+        width: 18px;
+        height: 18px;
+        background: #e67e22;
+        border-radius: 50%;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        
+        &:hover {
+          transform: scale(1.1);
+          background: #d35400;
+        }
+      }
+      
+      &::-moz-range-thumb {
+        width: 18px;
+        height: 18px;
+        background: #e67e22;
+        border-radius: 50%;
+        cursor: pointer;
+        border: none;
+        transition: all 0.2s ease;
+        
+        &:hover {
+          transform: scale(1.1);
+          background: #d35400;
+        }
+      }
+    }
+
+    .slider-help {
+      font-size: 0.75rem;
+      color: #a0aec0;
+      text-align: center;
+      font-style: italic;
     }
   }
 }
