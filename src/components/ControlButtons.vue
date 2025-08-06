@@ -18,6 +18,13 @@
           >
             Staggered Design
           </button>
+
+          <button
+            @click="$emit('clear-design')"
+            class="button clear-btn"
+          >
+            Clear Design
+          </button>
         </div>
       </div>
 
@@ -77,6 +84,7 @@ interface Props {
 interface Emits {
   (e: 'generate-random'): void
   (e: 'generate-staggered'): void
+  (e: 'clear-design'): void
   (e: 'save-design'): void
   (e: 'load-design'): void
   (e: 'update:showOverflowWarnings', value: boolean): void
@@ -205,6 +213,25 @@ defineEmits<Emits>()
   &:active {
     box-shadow:
       0 2px 10px rgba(243, 156, 18, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+  }
+}
+
+.clear-btn {
+  background: linear-gradient(145deg, #e53e3e, #c53030) !important;
+  box-shadow:
+    0 4px 15px rgba(229, 62, 62, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+
+  &:hover {
+    box-shadow:
+      0 6px 20px rgba(229, 62, 62, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+  }
+
+  &:active {
+    box-shadow:
+      0 2px 10px rgba(229, 62, 62, 0.3),
       inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
   }
 }

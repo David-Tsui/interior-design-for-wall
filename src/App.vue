@@ -26,6 +26,7 @@
         @update:hide-overflow-blocks="hideOverflowBlocks = $event"
         @generate-random="generateRandomDesign"
         @generate-staggered="generateStaggeredDesign"
+        @clear-design="clearDesign"
         @save-design="saveCurrentDesign"
         @load-design="loadSavedDesign"
       />
@@ -444,6 +445,15 @@ const onModalSave = (designName: string) => {
 const loadSavedDesign = () => {
   modalInitialTab.value = 'load'
   showSaveLoadModal.value = true
+}
+
+const clearDesign = () => {
+  if (blocks.value.length > 0) {
+    if (confirm('Are you sure you want to clear the current design? This action cannot be undone.')) {
+      blocks.value = []
+      selectedBlockId.value = null
+    }
+  }
 }
 
 const onModalLoad = (selectedDesign: Design) => {
