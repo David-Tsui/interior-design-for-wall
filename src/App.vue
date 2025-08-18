@@ -79,6 +79,7 @@
       @close="showSaveLoadModal = false"
       @save="onModalSave"
       @load="onModalLoad"
+      @import="onModalImport"
     />
   </div>
 </template>
@@ -119,7 +120,7 @@ const hideOverflowBlocks = ref<boolean>(false)
 const debugMode = ref<boolean>(false)
 const intersectionThreshold = ref<number>(25) // Percentage threshold for small intersections (default 25%)
 const showSaveLoadModal = ref<boolean>(false)
-const modalInitialTab = ref<'save' | 'load'>('save')
+const modalInitialTab = ref<'save' | 'load' | 'export' | 'import'>('save')
 const selectedBlockId = ref<string | null>(null)
 
 const blockTemplates = ref<Block[]>([...defaultBlockTemplates])
@@ -341,9 +342,9 @@ const onTemplateDropped = (template: Block, position: { x: number, y: number }) 
     console.log(`Drop Position: (${position.x}, ${position.y})`)
     console.log(`Wall Size: ${wallSettings.width}x${wallSettings.height}`)
   }
-  
+
   addBlockFromTemplate(template, position)
-  
+
   if (debugMode.value) {
     console.groupEnd()
   }
@@ -551,6 +552,41 @@ const onModalLoad = (selectedDesign: Design) => {
     ? `\n📐 ${selectedDesign.preview.wallDimensions} • 🧱 ${selectedDesign.preview.blockCount} blocks • 🎨 ${selectedDesign.preview.templateCount} templates`
     : ''
   alert(`✅ Loaded design: ${selectedDesign.name}${previewInfo}`)
+}
+
+const onModalImport = (importedDesign: Design) => {
+  // Check if overwrite is needed
+  const existingDesigns = JSON.parse(localStorage.getItem('wallDesigns') || '[]')
+  const existingIndex = existingDesigns.findIndex((d: Design) => d.name === importedDesign.name)
+
+  if (existingIndex >= 0) {
+    // Overwrite existing design
+    existingDesigns[existingIndex] = importedDesign
+  } else {
+    // Add as new design
+    existingDesigns.push(importedDesign)
+  }
+
+  // Save to localStorage
+  localStorage.setItem('wallDesigns', JSON.stringify(existingDesigns))
+
+  // Load the imported design into the current workspace
+  wallSettings.width = importedDesign.wall.width
+  wallSettings.height = importedDesign.wall.height
+  wallSettings.backgroundColor = importedDesign.wall.backgroundColor
+  blocks.value = [...importedDesign.blocks]
+
+  if (importedDesign.blockTemplates) {
+    blockTemplates.value = [...importedDesign.blockTemplates]
+  }
+
+  // Clear any selected block when importing a new design
+  selectedBlockId.value = null
+
+  const previewInfo = importedDesign.preview
+    ? `\n📐 ${importedDesign.preview.wallDimensions} • 🧱 ${importedDesign.preview.blockCount} blocks • 🎨 ${importedDesign.preview.templateCount} templates`
+    : ''
+  alert(`✅ Design "${importedDesign.name}" imported and loaded successfully!${previewInfo}`)
 }
 
 // Keyboard event handling

@@ -183,6 +183,62 @@ export const findValidPosition = (
 
   return null
 }
+
+// EXPORT/IMPORT UTILITIES
+// =======================
+
+export const exportDesign = (designData: any, filename: string): void => {
+  const dataStr = JSON.stringify(designData, null, 2)
+  const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr)
+
+  const exportFileDefaultName = `${filename}.json`
+
+  const linkElement = document.createElement('a')
+  linkElement.setAttribute('href', dataUri)
+  linkElement.setAttribute('download', exportFileDefaultName)
+  linkElement.click()
+}
+
+export const importDesignFromFile = (file: File): Promise<any> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string
+        const designData = JSON.parse(content)
+
+        // Validate the design data structure
+        if (validateImportedDesign(designData)) {
+          resolve(designData)
+        } else {
+          reject(new Error('Invalid design file format. Please select a valid exported design file.'))
+        }
+      } catch (error) {
+        reject(new Error('Error reading file. Please make sure it\'s a valid JSON file.'))
+      }
+    }
+    reader.onerror = () => reject(new Error('Error reading file'))
+    reader.readAsText(file)
+  })
+}
+
+export const validateImportedDesign = (data: any): boolean => {
+  return data &&
+         typeof data === 'object' &&
+         Array.isArray(data.blocks) &&
+         Array.isArray(data.blockTemplates) &&
+         data.wall &&
+         typeof data.wall.width === 'number' &&
+         typeof data.wall.height === 'number' &&
+         typeof data.name === 'string'
+}
+
+export const formatFileSize = (bytes: number): string => {
+  if (bytes < 1024) return bytes + ' B'
+  if (bytes < 1024 * 1024) return Math.round(bytes / 1024) + ' KB'
+  return Math.round(bytes / (1024 * 1024)) + ' MB'
+}
+
 // SMART INTERSECTION SYSTEM
 // =========================
 
@@ -221,7 +277,7 @@ export const hasSmallIntersection = (
     }
 
     const intersectionPercent = calculateIntersectionPercentage(newBlock, block)
-    
+
     if (intersectionPercent > 0 && intersectionPercent < thresholdPercentage) {
       collidingBlocks.push({
         block,
@@ -249,69 +305,69 @@ export const findBestPositionAroundBlock = (
   // Try positions around the target block, prioritized by distance to original position
   const potentialPositions = [
     // Right side
-    { 
-      x: targetBlock.x + targetBlock.width + padding, 
+    {
+      x: targetBlock.x + targetBlock.width + padding,
       y: targetBlock.y,
       side: 'right'
     },
-    { 
-      x: targetBlock.x + targetBlock.width + padding, 
+    {
+      x: targetBlock.x + targetBlock.width + padding,
       y: targetBlock.y + targetBlock.height - draggingBlockSize.height,
       side: 'right'
     },
-    { 
-      x: targetBlock.x + targetBlock.width + padding, 
+    {
+      x: targetBlock.x + targetBlock.width + padding,
       y: targetBlock.y + (targetBlock.height - draggingBlockSize.height) / 2,
       side: 'right'
     },
 
-    // Left side  
-    { 
-      x: targetBlock.x - draggingBlockSize.width - padding, 
+    // Left side
+    {
+      x: targetBlock.x - draggingBlockSize.width - padding,
       y: targetBlock.y,
       side: 'left'
     },
-    { 
-      x: targetBlock.x - draggingBlockSize.width - padding, 
+    {
+      x: targetBlock.x - draggingBlockSize.width - padding,
       y: targetBlock.y + targetBlock.height - draggingBlockSize.height,
       side: 'left'
     },
-    { 
-      x: targetBlock.x - draggingBlockSize.width - padding, 
+    {
+      x: targetBlock.x - draggingBlockSize.width - padding,
       y: targetBlock.y + (targetBlock.height - draggingBlockSize.height) / 2,
       side: 'left'
     },
 
     // Top side
-    { 
-      x: targetBlock.x, 
+    {
+      x: targetBlock.x,
       y: targetBlock.y - draggingBlockSize.height - padding,
       side: 'top'
     },
-    { 
-      x: targetBlock.x + targetBlock.width - draggingBlockSize.width, 
+    {
+      x: targetBlock.x + targetBlock.width - draggingBlockSize.width,
       y: targetBlock.y - draggingBlockSize.height - padding,
       side: 'top'
     },
-    { 
-      x: targetBlock.x + (targetBlock.width - draggingBlockSize.width) / 2, 
+    {
+      x: targetBlock.x + (targetBlock.width - draggingBlockSize.width) / 2,
       y: targetBlock.y - draggingBlockSize.height - padding,
       side: 'top'
     },
 
     // Bottom side
-    { 
-      x: targetBlock.x, 
+    {
+      x: targetBlock.x,
       y: targetBlock.y + targetBlock.height + padding,
       side: 'bottom'
     },
-    { 
-      x: targetBlock.x + targetBlock.width - draggingBlockSize.width, 
+    {
+      x: targetBlock.x + targetBlock.width - draggingBlockSize.width,
       y: targetBlock.y + targetBlock.height + padding,
       side: 'bottom'
     },
-    { 
-      x: targetBlock.x + (targetBlock.width - draggingBlockSize.width) / 2, 
+    {
+      x: targetBlock.x + (targetBlock.width - draggingBlockSize.width) / 2,
       y: targetBlock.y + targetBlock.height + padding,
       side: 'bottom'
     }
@@ -320,7 +376,7 @@ export const findBestPositionAroundBlock = (
   // Calculate distance from original position and sort
   const positionsWithDistance = potentialPositions.map(pos => {
     const distance = Math.sqrt(
-      Math.pow(pos.x - originalPosition.x, 2) + 
+      Math.pow(pos.x - originalPosition.x, 2) +
       Math.pow(pos.y - originalPosition.y, 2)
     )
     return { ...pos, distance }
