@@ -115,7 +115,7 @@ const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
 // Composables
-const { savedDesigns, loadSavedDesigns, saveDesign, deleteDesign, importDesigns } = useDesignStorage()
+const { savedDesigns, loadSavedDesigns, deleteDesign, importDesigns } = useDesignStorage()
 const { exportSingle } = useDesignExport()
 
 // Component state
@@ -123,23 +123,7 @@ const activeTab = ref<'save' | 'load' | 'export' | 'import'>('save')
 
 // Tab handlers
 const handleSave = (name: string) => {
-  const designToSave: Design = {
-    id: crypto.randomUUID(),
-    name,
-    createdAt: new Date().toISOString(),
-    blocks: props.currentDesignData.blocks,
-    blockTemplates: props.currentDesignData.blockTemplates,
-    wall: props.currentDesignData.wall,
-    preview: {
-      blockCount: props.currentDesignData.blocks.length,
-      wallDimensions: `${props.currentDesignData.wall.width}×${props.currentDesignData.wall.height}cm`,
-      templateCount: props.currentDesignData.blockTemplates.length
-    }
-  }
-
-  saveDesign(designToSave)
   emit('save', name)
-  alert(`✅ Design "${name}" saved successfully!`)
   closeModal()
 }
 

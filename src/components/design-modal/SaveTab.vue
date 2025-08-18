@@ -79,7 +79,7 @@ const handleSave = () => {
 
 // Generate default name when tab becomes active
 watch(() => props.isActive, (isActive) => {
-  if (isActive) {
+  if (isActive && !saveName.value.trim()) {
     const now = new Date()
     const timeStr = now.getFullYear() + '-' +
       String(now.getMonth() + 1).padStart(2, '0') + '-' +
